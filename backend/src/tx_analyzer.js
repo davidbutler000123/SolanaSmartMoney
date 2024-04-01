@@ -2,6 +2,101 @@ const { Transaction, TradeIndex } = require('./models')
 const { deleteDuplicates } = require('./trade_indexer')
 const { targetTokenPrice } = require('./price_query')
 
+const calcMetrics = (token, period) => {
+    return new Promise(async (resolve, reject) => {
+
+        await deleteDuplicates()
+
+        let pipeline = [
+            { $match: { token: token, type: "transfer" } },
+            { $project: 
+                {
+                    blockUnixTime: 1,
+                    source: 1,
+                    owner: 1,
+                    token: 1,
+                    type: 1,
+                    side: 1,
+                    total: 1,
+                    tradeSymbol: 1,
+                    tm: { $toInt: { $divide: ["$blockUnixTime", 60 * period] }}
+                }
+            },
+            { $group:
+                { 
+                    _id: {tm: "$tm", side: "$side"}, 
+                    tx_count: { $sum: 1 },
+                    total: { $sum: "$total"}
+                }
+            },
+            {
+                $sort: {"_id.tm": 1}
+            }
+        ]
+                
+        let records = await Transaction.aggregate(pipeline).exec()
+        let pubTime = 0, lastTime = 0
+        if(records.length > 0) {
+            pubTime = records[0]._id.tm
+            lastTime = records[records.length - 1]._id.tm
+        }
+        let results = []
+        for(var t = 0; t <= lastTime - pubTime; t++) {
+            results.push({
+                timestamp: t + 1,
+                fdv: 0,
+                initLiq: 0,
+                liqSol: 0,
+                totalVolume: 0,
+                buyVolume: 0,
+                sellVolume: 0,
+                totalTx: 0,
+                buyTx: 0,
+                sellTx: 0,
+                totalHolders: 0,
+                deltaFdv: 0,
+                deltaLiq: 0,
+                deltaVolume: 0,
+                deltaBuyVolume: 0,
+                deltaSellVolume: 0,
+                deltaAllTx: 0,
+                deltaBuyTx: 0,
+                deltaSellTx: 0,
+                deltaHolders: 0
+            })
+        }
+        let totVol = 0
+        records.forEach(item => {
+            let t = item._id.tm - pubTime
+            let volAdd = 0, buyAdd = 0, sellAdd = 0;
+            if(item._id.side == "buy") {
+                volAdd = 1;
+                sellAdd = 1;
+            }
+            if(item._id.side == "sell") {
+                volAdd = -1;
+                buyAdd = 1;
+            }
+            totVol += volAdd * item.total
+            results[t].totalVolume = totVol
+            results[t].buyVolume -= buyAdd * item.total
+            results[t].sellVolume += sellAdd * item.total
+            results[t].totalTx += item.tx_count;
+            results[t].buyTx += buyAdd * item.tx_count;
+            results[t].sellTx += sellAdd * item.tx_count;
+        })
+
+        let tokenSymbol = "unknown"
+        let symbolTx = await Transaction.aggregate([{$match: {token: token, type: "transfer"}}]).limit(1).exec()
+        if(symbolTx.length > 0) tokenSymbol = symbolTx[0].tradeSymbol        
+        resolve({
+            token:token,
+            symbol: tokenSymbol,
+            records: results
+        })
+    })
+}
+
 const calcLiquidity = (token, period) => {
     return new Promise(async (resolve, reject) => {
 
@@ -99,6 +194,7 @@ const calcHolders = (token, period) => {
 }
 
 module.exports = {    
+    calcMetrics,
     calcLiquidity,
     calcVolume,
     calcTxs,
