@@ -38,6 +38,16 @@ app.get('/api', (req, res) => {
   res.send('API ROOT ⚡️');
 });
 
+app.get('/api/calcMetrics', (req, res) => {  
+  txAanalyzer.calcMetrics(req.query.token, req.query.period)
+  .then(records => {
+    res.send(records)
+  })
+  .catch(err => {
+    res.send([])
+  })
+})
+
 app.get('/api/calcLiquidity', (req, res) => {  
   txAanalyzer.calcLiquidity(req.query.token, req.query.period)
   .then(records => {
