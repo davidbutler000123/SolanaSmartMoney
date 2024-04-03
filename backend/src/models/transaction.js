@@ -10,6 +10,7 @@ const txSchema = mongoose.Schema({
   typeSwap: { type: String, required: true },
   side: { type: String, required: true },
   total: { type: Number, required: true },
+  totalSol: { type: Number, required: true },
   tradeSymbol: { type: String, required: true },
   fromSymbol: { type: String, required: true },   // from symbol, for example 'USDC'
   // fromPrice: { type: Number },

@@ -55,12 +55,15 @@ client.on('connect', async function (connection) {
             }
 
             let total = tx.volumeUSD
+            let totalSol = tx.from.amount
+            if(tx.to.symbol == "SOL") totalSol = tx.to.amount
             let type = tx.from.type
             let typeSwap = tx.from.typeSwap
             let side = tx.side
             
-            if(side != "buy" && side != "sell") {                
-                console.log(`Liquidity -> ${tx.txHash} : ${total} -> ${token} -> ${tx.owner}`)
+            if(side != "buy" && side != "sell") {
+                totalSol /= 1000000000.0
+                console.log(`Liquidity -> ${tx.txHash} : ${total}(${totalSol} sol) -> ${token} -> ${tx.owner}`)
                 // console.log("*******************************************")
                 setTimeout(function() {
                     fetch_liquidity({
@@ -71,7 +74,8 @@ client.on('connect', async function (connection) {
                         token:token,
                         type: "liquidity",
                         typeSwap: "liquidity",
-                        total: tx.volumeUSD,
+                        total: total,
+                        totalSol: totalSol,
                         tradeSymbol: tradeSymbol,
                         fromSymbol: fromSymbol,
                         toSymbol: toSymbol
@@ -92,7 +96,10 @@ client.on('connect', async function (connection) {
             //     token = tx.to.address
             // }
 
-            if(side == 'sell') total *= (-1.0)
+            if(side == 'sell') {
+                total *= (-1.0)
+                totalSol *= (-1.0)
+            }
 
             const t = new Transaction({
                 blockUnixTime: tx.blockUnixTime,
@@ -103,6 +110,7 @@ client.on('connect', async function (connection) {
                 typeSwap: typeSwap,
                 side: side,
                 total: total,
+                totalSol: totalSol,
                 tradeSymbol: tradeSymbol,
                 fromSymbol: fromSymbol,
                 // fromPrice: fromPrice,

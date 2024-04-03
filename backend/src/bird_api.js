@@ -39,6 +39,8 @@ function fetch_liquidity(tx) {
         if(matchTx && matchTx.length > 0) {
             // console.log('liquidity type is decided to ADD')
             tx.side = "add"
+            
+            console.log('tx.totalSol = ' + tx.totalSol)
             const t = new Transaction(tx)            
             t.save()
             .then(item => {                
@@ -70,6 +72,9 @@ function fetch_liquidity(tx) {
             // console.log('liquidity type is decided to REMOVE')            
             tx.side = "remove"
             tx.total *= (-1)
+            tx.totalSol *= (-1)
+
+            console.log('tx.totalSol = ' + tx.totalSol)
             const t = new Transaction(tx)            
             t.save()
             .then(item => {                

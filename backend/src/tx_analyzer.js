@@ -29,7 +29,7 @@ async function askPriceFromDexScreen(token, resolve) {
         return false
     }
     poolFromDexScreen = pool[0]
-    console.log(poolFromDexScreen)
+    // console.log(poolFromDexScreen)
     return true
 }
 
@@ -77,6 +77,7 @@ async function aggregateLiquidity(token, period) {
                 type: 1,
                 side: 1,
                 total: 1,
+                totalSol: 1,
                 tradeSymbol: 1,
                 tm: { $toInt: { $divide: ["$blockUnixTime", 60 * period] }}
             }
@@ -85,7 +86,8 @@ async function aggregateLiquidity(token, period) {
             { 
                 _id: {tm: "$tm", side: "$side"}, 
                 tx_count: { $sum: 1 },
-                total: { $sum: "$total"}
+                total: { $sum: "$total"},
+                totalSol: { $sum: "$totalSol"}
             }
         },
         {
@@ -99,9 +101,14 @@ async function aggregateLiquidity(token, period) {
 
 const calcMetrics = (token, period) => {
     return new Promise(async (resolve, reject) => {
-        if(!askPriceFromDexScreen(token, resolve)) return
+        await askPriceFromDexScreen(token, resolve)
+        if(!poolFromDexScreen) return
         //await deleteDuplicates()        
         let volRecords = await aggregateVolume(token, period)
+        let liqRecords = await aggregateLiquidity(token, period)
+
+        // console.log('liqRecords = ')
+        // console.log(liqRecords)
 
         let pubTime = 0, lastTime = 0
         if(volRecords.length > 0) {
@@ -153,6 +160,29 @@ const calcMetrics = (token, period) => {
             results[t].buyTx += buyAdd * item.tx_count;
             results[t].sellTx += sellAdd * item.tx_count;
         })
+
+        if(liqRecords.length > 0) {
+            let liqStartTime = liqRecords[0]._id.tm
+            liqRecords.forEach(item => {
+                let t = item._id.tm - pubTime
+                //results[t].deltaLiq = item.totalSol
+                results[t].deltaLiq = item.total
+            })
+        }
+
+        let lastIdx = results.length - 1        
+        results[lastIdx].fdv = poolFromDexScreen.fdv
+        //results[lastIdx].liqSol = poolFromDexScreen.liquidity.quote
+        results[lastIdx].liqSol = poolFromDexScreen.liquidity.usd
+        for(let i = lastIdx - 1; i >= 0; i--) {
+            results[i].liqSol = results[i + 1].liqSol - results[i].deltaLiq
+            results[i].deltaVolume = results[i + 1].totalVolume - results[i].totalVolume
+            results[i].deltaBuyVolume = results[i + 1].buyVolume - results[i].buyVolume
+            results[i].deltaSellVolume = results[i + 1].sellVolume - results[i].sellVolume
+            results[i].deltaAllTx = results[i + 1].totalTx - results[i].totalTx
+            results[i].deltaBuyTx = results[i + 1].buyTx - results[i].buyTx
+            results[i].deltaSellTx = results[i + 1].sellTx - results[i].sellTx
+        }
 
         let tokenSymbol = "unknown"
         let symbolTx = await Transaction.aggregate([{$match: {token: token, type: "transfer"}}]).limit(1).exec()
