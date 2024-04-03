@@ -1,44 +1,112 @@
 const { Transaction, TradeIndex } = require('./models')
 const { deleteDuplicates } = require('./trade_indexer')
-const { targetTokenPrice } = require('./price_query')
+const { targetTokenPrice } = require('./bird_api')
+const axios = require('axios');
+
+let poolFromDexScreen = null
+
+async function askPriceFromDexScreen(token, resolve) {
+    let query = `https://api.dexscreener.io/latest/dex/tokens/${token}`
+
+    let response = await axios.get(query)
+    if(!response.data || !response.data.pairs || response.data.pairs.length == 0) {
+        resolve({
+            status: 1,
+            message: "price_query_failed"
+        })
+        return false
+    }
+
+    let pool = response.data.pairs.filter(item => 
+        item.chainId == 'solana' && 
+        item.dexId == 'raydium' &&
+        item.quoteToken.symbol == 'SOL') 
+    if(!pool || pool.length == 0) {
+        resolve({
+            status: 1,
+            message: "price_query_failed"
+        })
+        return false
+    }
+    poolFromDexScreen = pool[0]
+    console.log(poolFromDexScreen)
+    return true
+}
+
+async function aggregateVolume(token, period) {
+    let pipeline = [
+        { $match: { token: token, type: "transfer" } },
+        { $project: 
+            {
+                blockUnixTime: 1,
+                source: 1,
+                owner: 1,
+                token: 1,
+                type: 1,
+                side: 1,
+                total: 1,
+                tradeSymbol: 1,
+                tm: { $toInt: { $divide: ["$blockUnixTime", 60 * period] }}
+            }
+        },
+        { $group:
+            { 
+                _id: {tm: "$tm", side: "$side"}, 
+                tx_count: { $sum: 1 },
+                total: { $sum: "$total"}
+            }
+        },
+        {
+            $sort: {"_id.tm": 1}
+        }
+    ]
+            
+    let records = await Transaction.aggregate(pipeline).exec()
+    return records
+}
+
+async function aggregateLiquidity(token, period) {
+    let pipeline = [
+        { $match: { token: token, type: "liquidity" } },
+        { $project: 
+            {
+                blockUnixTime: 1,
+                source: 1,
+                owner: 1,
+                token: 1,
+                type: 1,
+                side: 1,
+                total: 1,
+                tradeSymbol: 1,
+                tm: { $toInt: { $divide: ["$blockUnixTime", 60 * period] }}
+            }
+        },
+        { $group:
+            { 
+                _id: {tm: "$tm", side: "$side"}, 
+                tx_count: { $sum: 1 },
+                total: { $sum: "$total"}
+            }
+        },
+        {
+            $sort: {"_id.tm": 1}
+        }
+    ]
+            
+    let records = await Transaction.aggregate(pipeline).exec()
+    return records
+}
 
 const calcMetrics = (token, period) => {
     return new Promise(async (resolve, reject) => {
+        if(!askPriceFromDexScreen(token, resolve)) return
+        //await deleteDuplicates()        
+        let volRecords = await aggregateVolume(token, period)
 
-        await deleteDuplicates()
-
-        let pipeline = [
-            { $match: { token: token, type: "transfer" } },
-            { $project: 
-                {
-                    blockUnixTime: 1,
-                    source: 1,
-                    owner: 1,
-                    token: 1,
-                    type: 1,
-                    side: 1,
-                    total: 1,
-                    tradeSymbol: 1,
-                    tm: { $toInt: { $divide: ["$blockUnixTime", 60 * period] }}
-                }
-            },
-            { $group:
-                { 
-                    _id: {tm: "$tm", side: "$side"}, 
-                    tx_count: { $sum: 1 },
-                    total: { $sum: "$total"}
-                }
-            },
-            {
-                $sort: {"_id.tm": 1}
-            }
-        ]
-                
-        let records = await Transaction.aggregate(pipeline).exec()
         let pubTime = 0, lastTime = 0
-        if(records.length > 0) {
-            pubTime = records[0]._id.tm
-            lastTime = records[records.length - 1]._id.tm
+        if(volRecords.length > 0) {
+            pubTime = volRecords[0]._id.tm
+            lastTime = volRecords[volRecords.length - 1]._id.tm
         }
         let results = []
         for(var t = 0; t <= lastTime - pubTime; t++) {
@@ -66,7 +134,7 @@ const calcMetrics = (token, period) => {
             })
         }
         let totVol = 0
-        records.forEach(item => {
+        volRecords.forEach(item => {
             let t = item._id.tm - pubTime
             let volAdd = 0, buyAdd = 0, sellAdd = 0;
             if(item._id.side == "buy") {
@@ -90,6 +158,7 @@ const calcMetrics = (token, period) => {
         let symbolTx = await Transaction.aggregate([{$match: {token: token, type: "transfer"}}]).limit(1).exec()
         if(symbolTx.length > 0) tokenSymbol = symbolTx[0].tradeSymbol        
         resolve({
+            status: 0,
             token:token,
             symbol: tokenSymbol,
             records: results

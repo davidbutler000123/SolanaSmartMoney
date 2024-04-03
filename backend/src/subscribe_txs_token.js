@@ -3,6 +3,7 @@
 var WebSocketClient = require('websocket').client;
 const util = require("util")
 const { COIN_TOKENS } = require('./utils/coin_tokens')
+const { fetch_liquidity } = require('./bird_api')
 const CHAIN= 'solana'
 
 var client = new WebSocketClient();
@@ -44,44 +45,54 @@ client.on('connect', async function (connection) {
                 return
             }
 
-            //console.log(`owner=${tx.owner}, total=${tx.volumeUSD}, type=${tx.side}, from=${tx.from.amount}, to=${tx.to.amount}, poolId=${tx.poolId}`)
-
-            const fromPrice = tx.from.price ? tx.from.price : tx.from.nearestPrice
-            const toPrice = tx.to.price ? tx.to.price : tx.to.nearestPrice
-            //let total = fromPrice ? fromPrice * tx.from.uiAmount : toPrice * tx.to.uiAmount
-            let total = tx.volumeUSD
-            let type = tx.from.type
-            let typeSwap = tx.from.typeSwap
-            let side = tx.side
-            let token = ""
-            
-            if(side != "buy" && side != "sell") {
-                if(tx.from.symbol == "SOL") {
-                    side = "remove"
-                    token = tx.to.address
-                }
-                else if(tx.to.symbol == "SOL") {
-                    side = "add"
-                    token = tx.from.address
-                }
-                typeSwap = "liquidity"
-                type = "liquidity"
-                //console.log(`${tx.txHash} -> ${side} -> ${total} -> ${token}`)
-            }
-
-            // filtering out non-swap transactions
-            if(!side || tx.from.amount == 0 || !tx.to.amount || !total) return
-
             const fromSymbol = tx.from.symbol ? tx.from.symbol : 'unknown'
             const toSymbol = tx.to.symbol ? tx.to.symbol : 'unknown'
             let tradeSymbol = fromSymbol
-            token = tx.from.address
+            let token = tx.from.address
             if(tradeSymbol == COIN_TOKENS[process.env.TARGET_NAME].symbol) {
                 tradeSymbol = toSymbol
                 token = tx.to.address
             }
 
-            if(side == 'sell' || side == 'remove') total *= (-1.0)
+            let total = tx.volumeUSD
+            let type = tx.from.type
+            let typeSwap = tx.from.typeSwap
+            let side = tx.side
+            
+            if(side != "buy" && side != "sell") {                
+                console.log(`Liquidity -> ${tx.txHash} : ${total} -> ${token} -> ${tx.owner}`)
+                // console.log("*******************************************")
+                setTimeout(function() {
+                    fetch_liquidity({
+                        txHash: tx.txHash,
+                        blockUnixTime: tx.blockUnixTime,
+                        source: tx.source,
+                        owner: tx.owner,
+                        token:token,
+                        type: "liquidity",
+                        typeSwap: "liquidity",
+                        total: tx.volumeUSD,
+                        tradeSymbol: tradeSymbol,
+                        fromSymbol: fromSymbol,
+                        toSymbol: toSymbol
+                    })
+                }, 100)
+                return
+            }
+
+            // filtering out non-swap transactions
+            if(!side || tx.from.amount == 0 || !tx.to.amount || !total) return
+
+            // const fromSymbol = tx.from.symbol ? tx.from.symbol : 'unknown'
+            // const toSymbol = tx.to.symbol ? tx.to.symbol : 'unknown'
+            // let tradeSymbol = fromSymbol
+            // token = tx.from.address
+            // if(tradeSymbol == COIN_TOKENS[process.env.TARGET_NAME].symbol) {
+            //     tradeSymbol = toSymbol
+            //     token = tx.to.address
+            // }
+
+            if(side == 'sell') total *= (-1.0)
 
             const t = new Transaction({
                 blockUnixTime: tx.blockUnixTime,

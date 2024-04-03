@@ -1,20 +1,20 @@
-const { Transaction, TradeIndex } = require('./models')
+const { Transaction } = require('./models')
 const { SubscriberTxCounter, connectBirdeyeWss } = require('./subscribe_txs_token')
+const { logTimeString } = require('./utils/utils')
 
-const   DB_INDEXING_RANGE_HOURS = process.env.DB_INDEXING_RANGE_HOURS
 const   DB_RANGE_TIME = process.env.DB_RANGE_TIME
-
-function currentMomentVal() {
-    //return Math.floor(new Date().getMinutes() / DB_INDEXING_RANGE_HOURS)
-    return Math.floor(new Date().getHours() / DB_INDEXING_RANGE_HOURS)
-}
-
-let     bIndexProcessing = false
-let     lastIndexingMomentVal = currentMomentVal()
-let     lastIndexingTime = new Date()
 
 async function deleteDuplicates() {
     
+    // ********** remove old transactions *******************
+    const aPastLimit = new Date(Date.now() - DB_RANGE_TIME)
+    const nRangeStartTime = Math.floor(aPastLimit.getTime() / 1000)
+    let result = await Transaction.collection.deleteMany({
+        blockUnixTime: {$lt: nRangeStartTime}
+    })
+
+    console.log(`${logTimeString()} -> Old Transactions: \x1b[33m${result.deletedCount}\x1b[0m deleted.`)
+
     const duplicates = await Transaction.aggregate([
     {
         $group: {
@@ -23,8 +23,8 @@ async function deleteDuplicates() {
             source: "$source",
             owner: "$owner",
             type: "$type",
-            fromSymbol: "$fromSymbol",
-            toSymbol: "$toSymbol",
+            token: "$token",
+            tradeSymbol: "$tradeSymbol",
             total: "$total",
             },
             ids: { $push: "$_id" },
@@ -60,89 +60,25 @@ async function deleteDuplicates() {
             _id: { $in: subIds }
         })
     }
-    console.log('deleteDuplicates: ' + duplTxCount)
+    console.log(`deleteDuplicates: \x1b[35m${duplTxCount}\x1b[0m`)
 }
 
 function printNewTransactions() {
-    const nowTime = new Date()
-    console.log(`${nowTime.toLocaleDateString()} ${nowTime.toLocaleTimeString()} -> New Transactions: ${SubscriberTxCounter.count} added.`)
+    console.log(`${logTimeString()} -> New Transactions: \x1b[36m${SubscriberTxCounter.count}\x1b[0m added.`)
     if(SubscriberTxCounter.count == 0) {
         connectBirdeyeWss()
     }
     SubscriberTxCounter.clear()
 }
 
-function shouldIndexing() {
-
-    if(bIndexProcessing) {
-        return
-    }
-    if(currentMomentVal() == lastIndexingMomentVal) return false    
-    lastIndexingMomentVal = currentMomentVal()    
-    return true
-}
-
 function monitorTxTraffic() {
     printNewTransactions()
-    if(!shouldIndexing()) return
-    doIndexing()
-}
-
-async function doIndexing() {
-    await deleteDuplicates()
-
-    bIndexProcessing = true
-    let nowTime = new Date()
-    lastIndexingTime = nowTime
-    let indexUnixTime = Math.floor(lastIndexingTime.getTime() / 1000)
-
-    // *********** indexing transactions to trade_index *****************
-    const pipeline = [
-        {
-            $match: { blockUnixTime: {$lt: indexUnixTime} }
-        },
-        { $group: { 
-            _id: {
-                owner:'$owner',
-                token:'$tradeSymbol'
-            },
-            total: {
-                $sum: '$total'
-            }
-        }}
-    ]
-
-    let tradesByWallet = await Transaction.aggregate(pipeline, { allowDiskUse: true }).exec()    
-    console.log('Indexed transactions count: ' + tradesByWallet.length + ', calc_time: ' + (nowTime - lastIndexingTime))
-    
-    // ************ insert new trade_index ****************
-    let result = await TradeIndex.collection.insertMany(tradesByWallet.map(item => ({
-        indexTime: indexUnixTime,
-        owner: item._id.owner,
-        tradeSymbol: item._id.token,
-        total: item.total
-    })))
-    console.log('Insert new trade_index -> inserted: ' + result.insertedCount)
-
-    // ************ remove old transactions ****************
-    result = await Transaction.collection.deleteMany({
-        blockUnixTime: { $lt: indexUnixTime}
-    })
-    console.log(`Remove old transaction -----> result: ${JSON.stringify(result)}`)
-    
-    // ********** remove old trade_index *******************
-    const aWeekAgo = new Date(Date.now() - DB_RANGE_TIME)
-    const nRangeStartTime = Math.floor(aWeekAgo.getTime() / 1000)
-    result = await TradeIndex.collection.deleteMany({
-        indexTime: {$lt: nRangeStartTime}
-    })
-    console.log(`Remove old trade_index -----> result: ${JSON.stringify(result)}`)
-
-    bIndexProcessing = false
 }
 
 setInterval(monitorTxTraffic, 10000)
-//setInterval(deleteDuplicates, 1000)
+setTimeout(function() {
+    setInterval(deleteDuplicates, 60000)
+}, 5000)
 
 module.exports = {
     deleteDuplicates

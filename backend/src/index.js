@@ -15,7 +15,7 @@ import { guard, newToken } from './utils/auth';
 require('./subscribe_txs_token')
 require('./trade_indexer')
 const txAanalyzer = require('./tx_analyzer')
-const { targetTokenPrice } = require('./price_query')
+const { targetTokenPrice } = require('./bird_api')
 
 const app = express();
 
