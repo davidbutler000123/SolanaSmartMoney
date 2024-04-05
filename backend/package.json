@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@hellomoon/api": "^1.19.0",
     "axios": "^1.6.7",
     "babel": "^6.23.0",
     "bcrypt": "^5.0.0",

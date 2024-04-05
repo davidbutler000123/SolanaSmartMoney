@@ -15,7 +15,7 @@ import { guard, newToken } from './utils/auth';
 require('./subscribe_txs_token')
 require('./trade_indexer')
 const txAanalyzer = require('./tx_analyzer')
-const { targetTokenPrice } = require('./bird_api')
+const { targetTokenPrice, fetchTokenTradesHistory } = require('./bird_api')
 
 const app = express();
 
@@ -46,6 +46,11 @@ app.get('/api/calcMetrics', (req, res) => {
   .catch(err => {
     res.send([])
   })
+})
+
+app.get('/api/fetchTokenHistory', (req, res) => {  
+  fetchTokenTradesHistory(req.query.token)
+  res.send([])
 })
 
 app.get('/api/calcLiquidity', (req, res) => {  

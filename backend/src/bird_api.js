@@ -39,7 +39,7 @@ function fetch_liquidity(tx) {
         if(matchTx && matchTx.length > 0) {
             // console.log('liquidity type is decided to ADD')
             tx.side = "add"
-            
+
             console.log('tx.totalSol = ' + tx.totalSol)
             const t = new Transaction(tx)            
             t.save()
@@ -91,11 +91,40 @@ function fetch_liquidity(tx) {
     });
 }
 
+async function getTokenTrades(token, offset) 
+{
+    let query = `https://public-api.birdeye.so/defi/txs/token?address=${token}&offset=${offset}&limit=50&tx_type=all`
+    let response = await axios.get(query, {
+        headers: {
+            'accept': 'application/json',
+            'x-chain': 'solana',
+            'X-API-KEY': process.env.BIRDEYE_API_KEY
+        }
+    })
+    if(!response.data || !response.data.data || !response.data.data.items || response.data.data.items.length == 0) 
+        return 0
+    let txnCount = response.data.data.items.length
+    // console.log('getTokenTrades returned counts: ' + txnCount)
+    return txnCount
+}
+
+async function fetchTokenTradesHistory(token)
+{
+    let nOffset = 0
+    while(true) {
+        let nCount = await getTokenTrades(token, nOffset)
+        if(nCount < 50) break
+        nOffset += nCount
+        console.log(`${logTimeString()} : fetchOffset -> ${nOffset}`)
+    }
+}
+
 function targetTokenPrice() {
     return token_price
 }
 
 module.exports = {
     targetTokenPrice,
-    fetch_liquidity
+    fetch_liquidity,
+    fetchTokenTradesHistory
 }
