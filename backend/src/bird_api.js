@@ -21,7 +21,10 @@ let SubscriberTxCounter = {
     },
     checkTxnDuplicate: function(hash) {
         let dupTxns = this.prev_txns.filter(item => (item==hash))
-        if(dupTxns && dupTxns.length > 0) return true
+        if(dupTxns && dupTxns.length > 0) {
+            // console.log('duplicate occur: ' + hash)
+            return true
+        }
         this.prev_txns.push(hash)
         while(this.prev_txns.length > 1000) {
             this.prev_txns.shift()
@@ -50,6 +53,7 @@ function ask_price(token) {
 
 function fetch_liquidity(tx) {
     let query = `https://public-api.birdeye.so/defi/txs/token?address=${tx.token}&offset=0&limit=${pageLimit}&tx_type=add`
+    console.log(query)
     axios.get(query, {
         headers: {
             'accept': 'application/json',
@@ -168,16 +172,16 @@ async function saveTokenTxnToDB(tx) {
     let side = tx.side
     
     if(side != "buy" && side != "sell") {
+        // console.log(tx)
         totalSol /= 1000000000.0
-        console.log(`Liquidity -> ${tx.txHash} : ${total}(${totalSol} sol) -> ${token} -> ${tx.owner}`)
-        // console.log("*******************************************")
+        console.log(`Liquidity -> ${tx.txHash} : ${total}(${totalSol} sol) -> ${token} -> ${tx.owner}`)        
         setTimeout(function() {
             fetch_liquidity({
                 txHash: tx.txHash,
                 blockUnixTime: tx.blockUnixTime,
                 source: tx.source,
                 owner: tx.owner,
-                token:token,
+                token: token,
                 type: "liquidity",
                 typeSwap: "liquidity",
                 total: total,
@@ -186,13 +190,13 @@ async function saveTokenTxnToDB(tx) {
                 fromSymbol: fromSymbol,
                 toSymbol: toSymbol
             })
-        }, 100)
+        }, 500)
         return
     }
 
     if(!side || tx.from.amount == 0 || !tx.to.amount || !total) return
 
-    if(side == 'sell') {
+    if(side == 'sell' || side =='remove') {
         total *= (-1.0)
         totalSol *= (-1.0)
     }

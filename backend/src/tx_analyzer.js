@@ -64,6 +64,7 @@ async function aggregateVolume(token, period) {
     ]
             
     let records = await Transaction.aggregate(pipeline).exec()
+    console.log('aggregateVolume: records.length = ' + records.length)
     return records
 }
 
@@ -118,6 +119,12 @@ const calcMetrics = (token, period) => {
             pubTime = volRecords[0]._id.tm
             lastTime = volRecords[volRecords.length - 1]._id.tm
         }
+        if(liqRecords.length > 0) {
+            if(pubTime > liqRecords[0]._id.tm)
+                pubTime = liqRecords[0]._id.tm
+            if(lastTime < liqRecords[liqRecords.length - 1]._id.tm)
+                lastTime = liqRecords[liqRecords.length - 1]._id.tm
+        }
         let results = []
         for(var t = 0; t <= lastTime - pubTime; t++) {
             results.push({
@@ -168,7 +175,8 @@ const calcMetrics = (token, period) => {
             let liqStartTime = liqRecords[0]._id.tm
             liqRecords.forEach(item => {
                 let t = item._id.tm - pubTime
-                //results[t].deltaLiq = item.totalSol
+                // console.log(`${item._id.tm} - ${pubTime}`)
+                //results[t].deltaLiq = item.totalSol                
                 results[t].deltaLiq = item.total
             })
         }
@@ -177,7 +185,7 @@ const calcMetrics = (token, period) => {
         results[lastIdx].fdv = poolFromDexScreen.fdv
         //results[lastIdx].liqSol = poolFromDexScreen.liquidity.quote
         results[lastIdx].liqSol = poolFromDexScreen.liquidity.usd        
-        for(let i = lastIdx - 1; i >= 0; i--) {
+        for(let i = lastIdx - 1; i >= 0; i--) {            
             results[i].liqSol = results[i + 1].liqSol - results[i].deltaLiq
             results[i].deltaVolume = results[i + 1].totalVolume - results[i].totalVolume
             results[i].deltaBuyVolume = results[i + 1].buyVolume - results[i].buyVolume
