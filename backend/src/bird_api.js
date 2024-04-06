@@ -1,18 +1,33 @@
 const axios = require('axios');
-const { Transaction } = require('./models')
+const { Transaction, HistoryTxn } = require('./models')
 const { logTimeString } = require('./utils/utils')
 
 let token_price = 100
 let pageLimit = 10
 
 let SubscriberTxCounter = {
-    count: 0,
+    count_live: 0,
+    count_hist: 0,
+    prev_txns: [],
     clear: function() {
-        SubscriberTxCounter.count = 0
+        SubscriberTxCounter.count_live = 0
+        SubscriberTxCounter.count_hist = 0
     },
-    add: function() {
-        SubscriberTxCounter.count++
-    }    
+    add_live: function() {
+        SubscriberTxCounter.count_live++
+    },
+    add_hist: function() {
+        SubscriberTxCounter.count_hist++
+    },
+    checkTxnDuplicate: function(hash) {
+        let dupTxns = this.prev_txns.filter(item => (item==hash))
+        if(dupTxns && dupTxns.length > 0) return true
+        this.prev_txns.push(hash)
+        while(this.prev_txns.length > 1000) {
+            this.prev_txns.shift()
+        }
+        return false
+    }
 }
 
 function ask_price(token) {
@@ -54,7 +69,7 @@ function fetch_liquidity(tx) {
             const t = new Transaction(tx)            
             t.save()
             .then(item => {                
-                //SubscriberTxCounter.add()
+                SubscriberTxCounter.add_live()
                 console.log(`${logTimeString()} -> Liquidity Transactions: \x1b[33m${tx.side}\x1b[0m -> ${tx.total} -> ${tx.token}`)
             })
             .catch((e) => {
@@ -88,7 +103,7 @@ function fetch_liquidity(tx) {
             const t = new Transaction(tx)            
             t.save()
             .then(item => {                
-                // SubscriberTxCounter.add()                
+                SubscriberTxCounter.add_live()
                 console.log(`${logTimeString()} -> Liquidity Transactions: \x1b[33m${tx.side}\x1b[0m -> ${tx.total} -> ${tx.token}`)
             })
             .catch((e) => {
@@ -109,8 +124,7 @@ async function getTokenTrades(token, offset, limit)
             'accept': 'application/json',
             'x-chain': 'solana',
             'X-API-KEY': process.env.BIRDEYE_API_KEY
-        },
-        timeout: 60000, // 60 seconds
+        }
     })
     if(!response.data || !response.data.data || !response.data.data.items || response.data.data.items.length == 0) 
         return []
@@ -118,16 +132,15 @@ async function getTokenTrades(token, offset, limit)
     return response.data.data.items
 }
 
-async function getPairTrades(pair, offset, limit) 
+async function getPairTrades(pair, offset, limit, tx_type) 
 {
-    let query = `https://public-api.birdeye.so/defi/txs/pair?address=${pair}&offset=${offset}&limit=${limit}&tx_type=all`
+    let query = `https://public-api.birdeye.so/defi/txs/pair?address=${pair}&offset=${offset}&limit=${limit}&tx_type=${tx_type}`
     let response = await axios.get(query, {
         headers: {
             'accept': 'application/json',
             'x-chain': 'solana',
             'X-API-KEY': process.env.BIRDEYE_API_KEY
-        },
-        timeout: 60000, // 60 seconds
+        }
     })
     if(!response.data || !response.data.data || !response.data.data.items || response.data.data.items.length == 0) 
         return []
@@ -136,6 +149,8 @@ async function getPairTrades(pair, offset, limit)
 }
 
 async function saveTokenTxnToDB(tx) {
+    if(SubscriberTxCounter.checkTxnDuplicate(tx.txHash)) return
+
     const fromSymbol = tx.from.symbol ? tx.from.symbol : 'unknown'
     const toSymbol = tx.to.symbol ? tx.to.symbol : 'unknown'
     let tradeSymbol = fromSymbol
@@ -198,23 +213,53 @@ async function saveTokenTxnToDB(tx) {
     })
     t.save()
     .then(item => {                
-        SubscriberTxCounter.add()                
+        SubscriberTxCounter.add_live()                
     })
     .catch((e) => {
         console.log('ERROR: ', tx, '----------------->', e)
     })  
 }
 
-async function savePairTxnToDB(tx) {
+async function savePairTxnToDB(tx, sideType) {
+    if(SubscriberTxCounter.checkTxnDuplicate(tx.txHash)) return
+
     let total = 0
-    let totalSol = 0
-    let token = ''
     let fromSymbol = 'unknown'
     let toSymbol = 'unknown'
-    let tradeSymbol = ''
-    if(!tx.from) {
+    let tradeSymbol = fromSymbol
+    let token = ''
+    let totalSol = 0
+    let fromPrice = 0
+    let toPrice = 0
+    let side = 'sell'
+    let type = 'transfer'
+    let typeSwap = 'from'
+
+    if(sideType == 'swap') {
+        fromSymbol = tx.from.symbol ? tx.from.symbol : 'unknown'
+        toSymbol = tx.to.symbol ? tx.to.symbol : 'unknown'
+        tradeSymbol = fromSymbol
+        token = tx.from.address
+        fromPrice = tx.from.price ? tx.from.price : tx.from.nearestPrice
+        toPrice = tx.to.price ? tx.to.price : tx.to.nearestPrice    
+        total = fromPrice ? fromPrice * tx.from.uiAmount : toPrice * tx.to.uiAmount        
+        totalSol = tx.to.amount
+        type = tx.to.type
+        typeSwap = tx.to.typeSwap
+
+        if(tradeSymbol == 'SOL') {
+            tradeSymbol = toSymbol
+            token = tx.to.address
+            totalSol = tx.from.amount
+            side = 'buy'
+        }
+    }
+    else if(sideType == 'add' || sideType == 'remove') {
+        side = sideType
+        type = 'liquidity'
+        typeSwap = sideType
         if(tx.tokens && tx.tokens.length > 1 && tx.tokens[0].symbol == 'SOL') {
-            totalSol = tx.tokens[0].uiAmount
+            totalSol = tx.tokens[0].amount
             total = totalSol * 180
             token = tx.tokens[1].address
             fromSymbol = 'SOL'
@@ -222,63 +267,22 @@ async function savePairTxnToDB(tx) {
             tradeSymbol = toSymbol
         }
         if(tx.tokens && tx.tokens.length > 1 && tx.tokens[1].symbol == 'SOL') {
-            totalSol = tx.tokens[1].uiAmount
+            totalSol = tx.tokens[1].amount
             total = totalSol * 180
             token = tx.tokens[0].address
             toSymbol = 'SOL'
             fromSymbol = tx.tokens[0].symbol
             tradeSymbol = fromSymbol
         }
-        console.log(`Liquidity -> ${tx.txHash} : ${totalSol} sol -> ${token} -> ${tx.owner}`)
-        // console.log("*******************************************")
-        setTimeout(function() {
-            fetch_liquidity({
-                txHash: tx.txHash,
-                blockUnixTime: tx.blockUnixTime,
-                source: tx.source,
-                owner: tx.owner,
-                token:token,
-                type: "liquidity",
-                typeSwap: "liquidity",
-                total: total,
-                totalSol: totalSol,
-                tradeSymbol: tradeSymbol,
-                fromSymbol: fromSymbol,
-                toSymbol: toSymbol
-            })
-        }, 100)
-        return
     }
-
-    const fromPrice = tx.from.price ? tx.from.price : tx.from.nearestPrice
-    const toPrice = tx.to.price ? tx.to.price : tx.to.nearestPrice    
-    total = fromPrice ? fromPrice * tx.from.uiAmount : toPrice * tx.to.uiAmount
-    fromSymbol = tx.from.symbol ? tx.from.symbol : 'unknown'
-    toSymbol = tx.to.symbol ? tx.to.symbol : 'unknown'
-    tradeSymbol = fromSymbol
-    token = tx.from.address
-    totalSol = tx.to.amount
-    let type = tx.to.type
-    let typeSwap = tx.to.typeSwap
-    let side = 'sell'
-    if(tradeSymbol == 'SOL') {
-        tradeSymbol = toSymbol
-        token = tx.to.address
-        totalSol = tx.from.amount
-        side = 'buy'
-        type = tx.from.type
-        typeSwap = tx.from.typeSwap
-    }
-
-    if(!side || tx.from.amount == 0 || !tx.to.amount || !total) return
-
+    
     totalSol /= 1000000000
-    if(side == 'sell') {
+    if(side == 'sell' || side == 'remove') {
         total *= (-1.0)
         totalSol *= (-1.0)
     }
 
-    const t = new Transaction({
+    const t = new HistoryTxn({
         blockUnixTime: tx.blockUnixTime,
         source: tx.source,
         owner: tx.owner,
@@ -292,9 +296,15 @@ async function savePairTxnToDB(tx) {
         fromSymbol: fromSymbol,
         toSymbol: toSymbol
     })
+    
+    // if(side == 'add' || side == 'remove') {
+    //     console.log(t)
+    //     return
+    // }
+
     t.save()
     .then(item => {                
-        SubscriberTxCounter.add()                
+        SubscriberTxCounter.add_hist()        
     })
     .catch((e) => {
         console.log('ERROR: ', tx, '----------------->', e)

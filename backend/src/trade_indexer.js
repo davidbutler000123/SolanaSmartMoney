@@ -65,8 +65,8 @@ async function deleteDuplicates() {
 }
 
 function printNewTransactions() {
-    console.log(`${logTimeString()} -> New Transactions: \x1b[36m${SubscriberTxCounter.count}\x1b[0m added.`)
-    if(SubscriberTxCounter.count == 0) {
+    console.log(`${logTimeString()} -> Live Txns: \x1b[36m${SubscriberTxCounter.count_live}\x1b[0m, History Txns: \x1b[36m${SubscriberTxCounter.count_hist}\x1b[0m added.`)
+    if(SubscriberTxCounter.count_live == 0) {
         connectBirdeyeWss()
     }
     SubscriberTxCounter.clear()
