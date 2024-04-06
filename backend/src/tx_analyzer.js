@@ -1,7 +1,8 @@
 const { Transaction, TradeIndex } = require('./models')
 const { deleteDuplicates } = require('./trade_indexer')
-const { targetTokenPrice } = require('./bird_api')
+const { getTokenTrades, getPairTrades, savePairTxnToDB } = require('./bird_api')
 const axios = require('axios');
+const { logTimeString, fmtTimestr } = require('./utils/utils');
 
 let poolFromDexScreen = null
 
@@ -173,7 +174,7 @@ const calcMetrics = (token, period) => {
         let lastIdx = results.length - 1        
         results[lastIdx].fdv = poolFromDexScreen.fdv
         //results[lastIdx].liqSol = poolFromDexScreen.liquidity.quote
-        results[lastIdx].liqSol = poolFromDexScreen.liquidity.usd
+        results[lastIdx].liqSol = poolFromDexScreen.liquidity.usd        
         for(let i = lastIdx - 1; i >= 0; i--) {
             results[i].liqSol = results[i + 1].liqSol - results[i].deltaLiq
             results[i].deltaVolume = results[i + 1].totalVolume - results[i].totalVolume
@@ -292,10 +293,85 @@ const calcHolders = (token, period) => {
     })
 }
 
+async function fetchTokenTradesHistory(token)
+{
+    return new Promise(async (resolve, reject) => {
+        await askPriceFromDexScreen(token, resolve)
+        if(!poolFromDexScreen) return
+
+        let pair = poolFromDexScreen.pairAddress
+        console.log('pair = ' + pair)
+        if(!pair) return
+
+        let pairCreateTime = new Date(poolFromDexScreen.pairCreatedAt)
+        console.log(`pairCreatetime = ${pairCreateTime.toLocaleDateString()}`)
+        let tDistance = Date.now() - poolFromDexScreen.pairCreatedAt
+        // let dayDis = Math.floor(tDistance / (24*3600*1000))
+        let targetTime = poolFromDexScreen.pairCreatedAt + 48*3600*1000
+        let nOffset = 0
+        //let stepSize = 100000, direct = 1 // step for token trades
+        let stepSize = 10000, direct = 1      // step for pair trades
+        let approxReach = false
+        let txnTime = Date.now()
+        if(targetTime < Date.now()) {
+            do {
+                let txn = null
+                try {
+                    //txn = await getTokenTrades(token, nOffset + stepSize * direct, 1)
+                    txn = await getPairTrades(pair, nOffset + stepSize * direct, 1)
+                } catch (error) {
+                    console.log(error)
+                    break
+                }
+                
+                if(!txn || txn.length == 0) {
+                    stepSize /= 2
+                    continue
+                    // break
+                }
+                txnTime = txn[0].blockUnixTime * 1000
+                nOffset += stepSize * direct
+                console.log('nOffset = ' + nOffset + ', ' + new Date(txnTime).toLocaleDateString())
+                let prevDirect = direct
+                if(!approxReach && txnTime < targetTime) {
+                    approxReach = true
+                    stepSize = 10000
+                }
+                if(txnTime < targetTime) direct = -1
+                else direct = 1
+                if(!approxReach) stepSize *= 2
+                else if(prevDirect != direct) stepSize /= 2
+                stepSize = Math.round(stepSize)
+                if(stepSize < 200) stepSize = 200
+            } while(Math.abs(txnTime - targetTime) > (3600 * 1000));
+        }
+
+        while(true) {
+            let records = []
+            try {
+                //records = await getTokenTrades(token, nOffset, 50)
+                records = await getPairTrades(pair, nOffset, 50)
+            } catch (error) {
+                console.log(error)
+                break
+            } 
+            records.forEach(tx => {
+                savePairTxnToDB(tx)
+            })
+            if(records.length < 50) break
+            nOffset += records.length
+            let txnTime = records[0].blockUnixTime * 1000
+            if(nOffset % 500 == 0) console.log(`${logTimeString()} : fetchOffset -> ${nOffset} : ${fmtTimestr(txnTime)}`)
+        }
+    })
+}
+
 module.exports = {    
     calcMetrics,
     calcLiquidity,
     calcVolume,
     calcTxs,
-    calcHolders
+    calcHolders,
+    askPriceFromDexScreen,
+    fetchTokenTradesHistory
 }

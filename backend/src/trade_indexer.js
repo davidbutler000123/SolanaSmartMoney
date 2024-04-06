@@ -1,5 +1,6 @@
 const { Transaction } = require('./models')
-const { SubscriberTxCounter, connectBirdeyeWss } = require('./subscribe_txs_token')
+const { connectBirdeyeWss } = require('./subscribe_txs_token')
+const { SubscriberTxCounter } = require('./bird_api')
 const { logTimeString } = require('./utils/utils')
 
 const   DB_RANGE_TIME = process.env.DB_RANGE_TIME
