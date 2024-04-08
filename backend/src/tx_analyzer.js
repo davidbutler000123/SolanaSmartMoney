@@ -7,7 +7,6 @@ const {
     SubscriberTxCounter } = require('./bird_api')
 const axios = require('axios');
 const { logTimeString, fmtTimestr } = require('./utils/utils');
-const { SolanaTxnsByUserRequest } = require('@hellomoon/api');
 
 let poolFromDexScreen = null
 
