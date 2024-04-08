@@ -47,9 +47,18 @@ app.get('/api/calcMetrics', (req, res) => {
   })
 })
 
-app.get('/api/fetchTokenHistory', (req, res) => {  
+app.get('/api/fetchTokenHistory', (req, res) => {
   txAanalyzer.fetchTokenTradesHistory(req.query.token)
-  res.send([])
+  .then(result => {
+    res.send(result)
+  })
+  .catch(error => {
+    console.log(error)
+    res.send({
+      state: 4,
+      message: error
+    })
+  })
 })
 
 app.get('/api/calcLiquidity', (req, res) => {  

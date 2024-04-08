@@ -9,6 +9,7 @@ let SubscriberTxCounter = {
     count_live: 0,
     count_hist: 0,
     prev_txns: [],
+    fetch_active: false,
     clear: function() {
         SubscriberTxCounter.count_live = 0
         SubscriberTxCounter.count_hist = 0
@@ -26,7 +27,7 @@ let SubscriberTxCounter = {
             return true
         }
         this.prev_txns.push(hash)
-        while(this.prev_txns.length > 1000) {
+        while(this.prev_txns.length > 10000) {
             this.prev_txns.shift()
         }
         return false
@@ -266,7 +267,7 @@ async function savePairTxnToDB(tx, sideType) {
         typeSwap = sideType
         if(tx.tokens && tx.tokens.length > 1 && tx.tokens[0].symbol == 'SOL') {
             totalSol = tx.tokens[0].amount
-            total = totalSol * 180
+            total = totalSol * 180 / 1000000000
             token = tx.tokens[1].address
             fromSymbol = 'SOL'
             toSymbol = tx.tokens[1].symbol
@@ -274,7 +275,7 @@ async function savePairTxnToDB(tx, sideType) {
         }
         if(tx.tokens && tx.tokens.length > 1 && tx.tokens[1].symbol == 'SOL') {
             totalSol = tx.tokens[1].amount
-            total = totalSol * 180
+            total = totalSol * 180 / 1000000000
             token = tx.tokens[0].address
             toSymbol = 'SOL'
             fromSymbol = tx.tokens[0].symbol
