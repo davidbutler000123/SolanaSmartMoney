@@ -178,7 +178,8 @@ const calcMetrics = (token, period) => {
         }
         let totVol = 0
         let totSol = 0
-        volRecords.forEach(item => {
+        for(let i = 0; i < volRecords.length; i++) {
+            let item = volRecords[i]
             let bin = item._id.tm - pubTime
             let timestamp = fmtTimestr(item._id.tm * period * 60000)
             let volAdd = 0, buyAdd = 0, sellAdd = 0;
@@ -202,7 +203,7 @@ const calcMetrics = (token, period) => {
             results[bin].buyTx += buyAdd * item.tx_count;
             results[bin].sellTx += sellAdd * item.tx_count;
             results[bin].deltaLiq = item.totalSol;
-        })
+        }
 
         if(liqRecords.length > 0) {
             let liqStartTime = liqRecords[0]._id.tm
