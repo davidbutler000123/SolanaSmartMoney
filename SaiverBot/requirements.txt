@@ -1,4 +1,9 @@
+colorama
+enlighten
 pandas
-openpyxl
-websocket-client
+Requests
+rich
+websocket_client
 e
+websockets
+openpyxl
