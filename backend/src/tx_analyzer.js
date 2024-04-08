@@ -39,10 +39,18 @@ async function askPriceFromDexScreen(token, resolve) {
 }
 
 async function aggregateVolume(token, period) {
+    let pubTime = Math.floor(poolFromDexScreen.pairCreatedAt / 1000)
+    let targetTime = Math.floor((poolFromDexScreen.pairCreatedAt + 48*3600*1000) / 1000)
+
     let pipeline = [
         // { $unionWith: 'historytxns'},
         // { $match: { token: token, type: "transfer" } },
-        { $match: { token: token } },
+        { $match: { 
+            token: token,
+            blockUnixTime: {                
+                $lt: targetTime + 1
+            } } 
+        },
         { $project: 
             {
                 blockUnixTime: 1,
@@ -193,6 +201,7 @@ const calcMetrics = (token, period) => {
             results[bin].totalTx += item.tx_count;
             results[bin].buyTx += buyAdd * item.tx_count;
             results[bin].sellTx += sellAdd * item.tx_count;
+            results[bin].deltaLiq = item.totalSol;
         })
 
         if(liqRecords.length > 0) {
