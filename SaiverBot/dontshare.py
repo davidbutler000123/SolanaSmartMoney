@@ -6,5 +6,8 @@ INTERVAL_TIME_TYPE = '1m' # 1m, 3m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 8H, 12H, 1D, 3
 
 SERVER_URL = "http://95.217.146.177:5000/api/"
 
+WSS_TOKEN_URL = "ws://localhost:5000"
+
+
 EXPORT_EXCEL_PATH = "./output/out.xlsx"
 

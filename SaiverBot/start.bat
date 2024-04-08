@@ -1,1 +1,3 @@
-python ./main.py
+python ./tokenMetrics.py
+
+pause
