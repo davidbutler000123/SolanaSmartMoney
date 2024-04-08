@@ -53,7 +53,7 @@ function ask_price(token) {
 
 function fetch_liquidity(tx) {
     let query = `https://public-api.birdeye.so/defi/txs/token?address=${tx.token}&offset=0&limit=${pageLimit}&tx_type=add`
-    console.log(query)
+    // console.log(query)
     axios.get(query, {
         headers: {
             'accept': 'application/json',
@@ -138,7 +138,7 @@ async function getTokenTrades(token, offset, limit)
 
 async function getPairTrades(pair, offset, limit, tx_type) 
 {
-    let query = `https://public-api.birdeye.so/defi/txs/pair?address=${pair}&offset=${offset}&limit=${limit}&tx_type=${tx_type}`
+    let query = `https://public-api.birdeye.so/defi/txs/pair?address=${pair}&offset=${offset}&limit=${limit}&tx_type=${tx_type}&sort_type=desc`
     let response = await axios.get(query, {
         headers: {
             'accept': 'application/json',
@@ -171,10 +171,11 @@ async function saveTokenTxnToDB(tx) {
     let typeSwap = tx.from.typeSwap
     let side = tx.side
     
+    /*
     if(side != "buy" && side != "sell") {
         // console.log(tx)
         totalSol /= 1000000000.0
-        console.log(`Liquidity -> ${tx.txHash} : ${total}(${totalSol} sol) -> ${token} -> ${tx.owner}`)        
+        // console.log(`Liquidity -> ${tx.txHash} : ${total}(${totalSol} sol) -> ${token} -> ${tx.owner}`)
         setTimeout(function() {
             fetch_liquidity({
                 txHash: tx.txHash,
@@ -193,6 +194,7 @@ async function saveTokenTxnToDB(tx) {
         }, 500)
         return
     }
+    */
 
     if(!side || tx.from.amount == 0 || !tx.to.amount || !total) return
 

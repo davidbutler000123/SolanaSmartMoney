@@ -1,5 +1,5 @@
 const { Transaction, HistoryTxn } = require('./models')
-const { deleteDuplicates } = require('./trade_indexer')
+const { deleteDuplicates, deleteHistoryDuplicates } = require('./trade_indexer')
 const { getTokenTrades, getPairTrades, savePairTxnToDB } = require('./bird_api')
 const axios = require('axios');
 const { logTimeString, fmtTimestr } = require('./utils/utils');
@@ -376,10 +376,10 @@ async function fetchPairTradeHistoryForLiquidity(pair) {
         records.forEach(tx => {
             savePairTxnToDB(tx, 'add')
         })
-        if(records.length < 50) break
+        if(records.length == 0) break
+        let txnTime = records[records.length - 1].blockUnixTime * 1000
+        console.log(`${logTimeString()} : fetchOffsetAdd -> ${nOffset} : ${fmtTimestr(txnTime)}`)
         nOffset += records.length
-        let txnTime = records[0].blockUnixTime * 1000
-        if(nOffset % 500 == 0) console.log(`${logTimeString()} : fetchOffsetAdd -> ${nOffset} : ${fmtTimestr(txnTime)}`)
     }
 
     nOffset = 0
@@ -394,10 +394,10 @@ async function fetchPairTradeHistoryForLiquidity(pair) {
         records.forEach(tx => {
             savePairTxnToDB(tx, 'remove')
         })
-        if(records.length < 50) break
+        if(records.length == 0) break
+        let txnTime = records[records.length - 1].blockUnixTime * 1000
+        console.log(`${logTimeString()} : fetchOffsetRemove -> ${nOffset} : ${fmtTimestr(txnTime)}`)
         nOffset += records.length
-        let txnTime = records[0].blockUnixTime * 1000
-        if(nOffset % 500 == 0) console.log(`${logTimeString()} : fetchOffsetRemove -> ${nOffset} : ${fmtTimestr(txnTime)}`)
     }
 }
 
@@ -407,12 +407,42 @@ async function fetchTokenTradesHistory(token)
         await askPriceFromDexScreen(token, resolve)
         if(!poolFromDexScreen) return
 
-        let pair = poolFromDexScreen.pairAddress
-        console.log('pair = ' + pair)
+        let pair = poolFromDexScreen.pairAddress        
         if(!pair) return
 
+        let pubTime = Math.floor(poolFromDexScreen.pairCreatedAt / 1000)
+        let targetTime = Math.floor((poolFromDexScreen.pairCreatedAt + 48*3600*1000) / 1000)
+        console.log(`pair =  ${pair}, ${fmtTimestr(poolFromDexScreen.pairCreatedAt)}`)
+
+        // let pipe = [
+        //     { $match:  { 
+        //             blockUnixTime: {
+        //                 $gt: pubTime, 
+        //                 $lt: targetTime
+        //             },
+        //             token: token, 
+        //             type: "liquidity" 
+        //         }
+        //     },
+        //     { $sort: { "blockUnixTime": 1 } }
+        // ]
+        // let records = await HistoryTxn.aggregate(pipe).exec()
+
+        // if(records.length > 1) {
+        //     let nDuration = targetTime - pubTime
+        //     let nFetched = targetTime - records[0].blockUnixTime
+        //     let percent = Math.round(100 * nFetched / nDuration)
+        //     console.log(`${fmtTimestr(records[0].blockUnixTime*1000)} -> ${fmtTimestr(records[records.length-1].blockUnixTime*1000)} : percent=${percent}%`)
+        //     console.log(records.map(item=>({
+        //         blockUnixTime: fmtTimestr(item.blockUnixTime * 1000),
+        //         side: item.side,
+        //         totalSol: item.totalSol
+        //     })).slice(0, 3))
+        //     return
+        // }
         await fetchPairTradeHistoryForSwap(pair)
         await fetchPairTradeHistoryForLiquidity(pair)
+        await deleteHistoryDuplicates()
     })
 }
 
