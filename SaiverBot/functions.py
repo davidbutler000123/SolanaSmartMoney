@@ -91,6 +91,8 @@ def save_calc_metrics(address, period, time_from, time_to):
                     "Delta-Sell Tx": item['deltaSellTx'],
                     "Delta-Holders": item['deltaHolders']} for item in items]
 
+                for item in processed_data:
+                    print(f"delta = {item['Delta-Liquidity']}")
                 # Assuming 'processed_data' is already defined and available
                 df = pd.DataFrame(processed_data)
 

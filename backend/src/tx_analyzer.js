@@ -67,7 +67,8 @@ async function aggregateVolume(token, period) {
         },
         { $group:
             { 
-                _id: {tm: "$tm", side: "$side"}, 
+                // _id: {tm: "$tm", side: "$side"}, 
+                _id: {tm: "$tm"}, 
                 tx_count: { $sum: 1 },
                 total: { $sum: "$total"},
                 totalSol: { $sum: "$totalSol"}
