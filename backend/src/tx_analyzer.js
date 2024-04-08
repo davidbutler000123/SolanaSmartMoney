@@ -7,6 +7,7 @@ const {
     SubscriberTxCounter } = require('./bird_api')
 const axios = require('axios');
 const { logTimeString, fmtTimestr } = require('./utils/utils');
+const { SolanaTxnsByUserRequest } = require('@hellomoon/api');
 
 let poolFromDexScreen = null
 
@@ -67,8 +68,7 @@ async function aggregateVolume(token, period) {
         },
         { $group:
             { 
-                // _id: {tm: "$tm", side: "$side"}, 
-                _id: {tm: "$tm"}, 
+                _id: {tm: "$tm", side: "$side"}, 
                 tx_count: { $sum: 1 },
                 total: { $sum: "$total"},
                 totalSol: { $sum: "$totalSol"}
@@ -179,6 +179,8 @@ const calcMetrics = (token, period) => {
         }
         let totVol = 0
         let totSol = 0
+        let binSol = 0
+        let prevBin = 0
         for(let i = 0; i < volRecords.length; i++) {
             let item = volRecords[i]
             let bin = item._id.tm - pubTime
@@ -203,7 +205,14 @@ const calcMetrics = (token, period) => {
             results[bin].totalTx += item.tx_count;
             results[bin].buyTx += buyAdd * item.tx_count;
             results[bin].sellTx += sellAdd * item.tx_count;
-            results[bin].deltaLiq = item.totalSol;
+            if(prevBin != bin) {
+                if(prevBin >= 0 && prevBin < results.length) {
+                    results[prevBin].deltaLiq = binSol
+                    binSol = 0
+                }
+            }
+            binSol += item.totalSol
+            prevBin = bin
         }
 
         if(liqRecords.length > 0) {
