@@ -237,6 +237,7 @@ async function saveTokenTxnToDB(tx) {
     }
 
     const t = new Transaction({
+        txHash: tx.txHash,
         blockUnixTime: tx.blockUnixTime,
         source: tx.source,
         owner: tx.owner,
@@ -331,6 +332,7 @@ async function savePairTxnToDB(tx, sideType) {
     }
 
     const t = new HistoryTxn({
+        txHash: tx.txHash,
         blockUnixTime: tx.blockUnixTime,
         source: tx.source,
         owner: tx.owner,

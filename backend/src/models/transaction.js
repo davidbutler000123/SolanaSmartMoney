@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const txSchema = mongoose.Schema({
-  // txHash: { type: String, required: true },
+  txHash: { type: String, required: true },
   blockUnixTime: { type: Number, required: true },
   source: { type: String, required: true },
   owner: { type: String, required: true },

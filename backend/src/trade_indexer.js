@@ -2,6 +2,7 @@ const { Transaction, HistoryTxn } = require('./models')
 const { connectBirdeyeWss } = require('./subscribe_txs_token')
 const { SubscriberTxCounter } = require('./bird_api')
 const { logTimeString } = require('./utils/utils')
+const { SalesTrackerHighestNumberTxnPerDayRequest } = require('@hellomoon/api')
 
 const   DB_RANGE_TIME = process.env.DB_RANGE_TIME
 
@@ -20,13 +21,14 @@ async function deleteDuplicates() {
     {
         $group: {
             _id: {
-            blockUnixTime: "$blockUnixTime",
-            source: "$source",
-            owner: "$owner",
-            type: "$type",
-            token: "$token",
-            tradeSymbol: "$tradeSymbol",
-            total: "$total",
+                txHash: "$txHash"
+            // blockUnixTime: "$blockUnixTime",
+            // source: "$source",
+            // owner: "$owner",
+            // type: "$type",
+            // token: "$token",
+            // tradeSymbol: "$tradeSymbol",
+            // total: "$total",
             },
             ids: { $push: "$_id" },
             count: { $sum: 1 }
