@@ -255,7 +255,7 @@ const calcMetrics = (token, period) => {
         }
 
         let lastIdx = results.length - 1        
-        results[lastIdx].fdv = poolFromDexScreen.fdv
+        //results[lastIdx].fdv = poolFromDexScreen.fdv
         //results[lastIdx].liqSol = poolFromDexScreen.liquidity.quote
         //results[lastIdx].liqSol = poolFromDexScreen.liquidity.usd        
         for(let i = lastIdx - 1; i >= 0; i--) {            
