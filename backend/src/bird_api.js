@@ -34,25 +34,50 @@ let SubscriberTxCounter = {
     }
 }
 
-function ask_price(token) {
-    let query = `https://public-api.birdeye.so/defi/price?address=${token}`
-    axios.get(query, {
+let PriceProvider = {
+    sol_address: 'So11111111111111111111111111111111111111112',
+    sol_prices: [],
+    token_prices: [],
+    querySol: (time) => {
+        let candPrices = PriceProvider.sol_prices.filter(item => item.unixTime == time)
+        if(candPrices && candPrices.length > 0) return candPrices[0].value
+        if(PriceProvider.sol_prices.length > 0) return PriceProvider.sol_prices[0].value
+        return 0
+    },
+    queryToken: (time) => {
+        let candPrices = PriceProvider.token_prices.filter(item => item.unixTime == time)
+        if(candPrices && candPrices.length > 0) return candPrices[0].value
+        if(PriceProvider.token_prices.length > 0) return PriceProvider.token_prices[0].value
+        return 0
+    }
+}
+
+async function askPriceHistory(address, address_type, type, time_from, time_to) {
+    let query = `https://public-api.birdeye.so/defi/history_price?address=${address}&address_type=${address_type}&type=${type}&time_from=${time_from}&time_to=${time_to}`
+    let response = await axios.get(query, {
         headers: {
             'accept': 'application/json',
             'x-chain': 'solana',
             'X-API-KEY': process.env.BIRDEYE_API_KEY
         }
     })
-    .then(response => {
-        if(response.data.success)
-            token_price = response.data.data.value
-    })
-    .catch(error => {
-        console.log(`get_pair_transactions failed -> ${error}`);
-    });
+    let prices = []
+    if(response && response.data && response.data.success) {
+        prices = response.data.data.items
+    }
+    
+    if(address == PriceProvider.sol_address) PriceProvider.sol_prices = prices
+    else {
+        PriceProvider.token_prices = prices
+        if(prices && prices.length > 2) {
+            console.log('token_price = ' + prices[1].value)
+        }
+    }
+
+    return prices
 }
 
-function fetch_liquidity(tx) {
+function fetchLiquidity(tx) {
     let query = `https://public-api.birdeye.so/defi/txs/token?address=${tx.token}&offset=0&limit=${pageLimit}&tx_type=add`
     // console.log(query)
     axios.get(query, {
@@ -70,7 +95,7 @@ function fetch_liquidity(tx) {
             // console.log('liquidity type is decided to ADD')
             tx.side = "add"
 
-            console.log('tx.totalSol = ' + tx.totalSol)
+            console.log('tx.solAmount = ' + tx.solAmount)
             const t = new Transaction(tx)            
             t.save()
             .then(item => {                
@@ -83,7 +108,7 @@ function fetch_liquidity(tx) {
         }
     })
     .catch(error => {
-        console.log(`fetch_liquidity_add failed -> ${error}`);
+        console.log(`fetchLiquidity_add failed -> ${error}`);
     });
 
     query = `https://public-api.birdeye.so/defi/txs/token?address=${tx.token}&offset=0&limit=${pageLimit}&tx_type=remove`
@@ -102,9 +127,9 @@ function fetch_liquidity(tx) {
             // console.log('liquidity type is decided to REMOVE')            
             tx.side = "remove"
             tx.total *= (-1)
-            tx.totalSol *= (-1)
+            tx.solAmount *= (-1)
 
-            console.log('tx.totalSol = ' + tx.totalSol)
+            console.log('tx.solAmount = ' + tx.solAmount)
             const t = new Transaction(tx)            
             t.save()
             .then(item => {                
@@ -117,7 +142,7 @@ function fetch_liquidity(tx) {
         }
     })
     .catch(error => {
-        console.log(`fetch_liquidity_remove failed -> ${error}`);
+        console.log(`fetchLiquidity_remove failed -> ${error}`);
     });
 }
 
@@ -166,8 +191,12 @@ async function saveTokenTxnToDB(tx) {
     }
 
     let total = tx.volumeUSD
-    let totalSol = tx.from.amount
-    if(tx.to.symbol == "SOL") totalSol = tx.to.amount
+    let solAmount = tx.from.amount / Math.pow(10, tx.from.decimals)
+    let baseAmount = tx.to.amount / Math.pow(10, tx.to.decimals)
+    if(tx.to.symbol == "SOL") {
+        solAmount = tx.to.amount / Math.pow(10, tx.to.decimals)
+        baseAmount = tx.from.amount / Math.pow(10, tx.from.decimals)
+    }
     let type = tx.from.type
     let typeSwap = tx.from.typeSwap
     let side = tx.side
@@ -175,10 +204,10 @@ async function saveTokenTxnToDB(tx) {
     /*
     if(side != "buy" && side != "sell") {
         // console.log(tx)
-        totalSol /= 1000000000.0
-        // console.log(`Liquidity -> ${tx.txHash} : ${total}(${totalSol} sol) -> ${token} -> ${tx.owner}`)
+        solAmount /= 1000000000.0
+        // console.log(`Liquidity -> ${tx.txHash} : ${total}(${solAmount} sol) -> ${token} -> ${tx.owner}`)
         setTimeout(function() {
-            fetch_liquidity({
+            fetchLiquidity({
                 txHash: tx.txHash,
                 blockUnixTime: tx.blockUnixTime,
                 source: tx.source,
@@ -187,7 +216,7 @@ async function saveTokenTxnToDB(tx) {
                 type: "liquidity",
                 typeSwap: "liquidity",
                 total: total,
-                totalSol: totalSol,
+                solAmount: solAmount,
                 tradeSymbol: tradeSymbol,
                 fromSymbol: fromSymbol,
                 toSymbol: toSymbol
@@ -201,7 +230,10 @@ async function saveTokenTxnToDB(tx) {
 
     if(side == 'sell' || side =='remove') {
         total *= (-1.0)
-        totalSol *= (-1.0)
+        solAmount *= (-1.0)        
+    }
+    else {
+        baseAmount *= (-1.0)
     }
 
     const t = new Transaction({
@@ -213,7 +245,8 @@ async function saveTokenTxnToDB(tx) {
         typeSwap: typeSwap,
         side: side,
         total: total,
-        totalSol: totalSol,
+        solAmount: solAmount,
+        baseAmount: baseAmount,
         tradeSymbol: tradeSymbol,
         fromSymbol: fromSymbol,
         toSymbol: toSymbol
@@ -235,7 +268,8 @@ async function savePairTxnToDB(tx, sideType) {
     let toSymbol = 'unknown'
     let tradeSymbol = fromSymbol
     let token = ''
-    let totalSol = 0
+    let solAmount = 0
+    let baseAmount = 0
     let fromPrice = 0
     let toPrice = 0
     let side = 'sell'
@@ -250,14 +284,16 @@ async function savePairTxnToDB(tx, sideType) {
         fromPrice = tx.from.price ? tx.from.price : tx.from.nearestPrice
         toPrice = tx.to.price ? tx.to.price : tx.to.nearestPrice    
         total = fromPrice ? fromPrice * tx.from.uiAmount : toPrice * tx.to.uiAmount        
-        totalSol = tx.to.amount
+        solAmount = tx.to.amount
+        baseAmount = tx.from.amount / Math.pow(10, tx.from.decimals)
         type = tx.to.type
         typeSwap = tx.to.typeSwap
 
         if(tradeSymbol == 'SOL') {
             tradeSymbol = toSymbol
             token = tx.to.address
-            totalSol = tx.from.amount
+            solAmount = tx.from.amount            
+            baseAmount = tx.to.amount / Math.pow(10, tx.to.decimals)
             side = 'buy'
         }
     }
@@ -266,16 +302,18 @@ async function savePairTxnToDB(tx, sideType) {
         type = 'liquidity'
         typeSwap = sideType
         if(tx.tokens && tx.tokens.length > 1 && tx.tokens[0].symbol == 'SOL') {
-            totalSol = tx.tokens[0].amount
-            total = totalSol * 180 / 1000000000
+            solAmount = tx.tokens[0].amount
+            baseAmount = tx.tokens[1].amount / Math.pow(10, tx.tokens[1].decimals)
+            total = solAmount * 180 / 1000000000
             token = tx.tokens[1].address
             fromSymbol = 'SOL'
             toSymbol = tx.tokens[1].symbol
             tradeSymbol = toSymbol
         }
         if(tx.tokens && tx.tokens.length > 1 && tx.tokens[1].symbol == 'SOL') {
-            totalSol = tx.tokens[1].amount
-            total = totalSol * 180 / 1000000000
+            solAmount = tx.tokens[1].amount
+            baseAmount = tx.tokens[0].amount / Math.pow(10, tx.tokens[0].decimals)
+            total = solAmount * 180 / 1000000000
             token = tx.tokens[0].address
             toSymbol = 'SOL'
             fromSymbol = tx.tokens[0].symbol
@@ -283,10 +321,13 @@ async function savePairTxnToDB(tx, sideType) {
         }
     }
     
-    totalSol /= 1000000000
+    solAmount /= 1000000000
     if(side == 'sell' || side == 'remove') {
         total *= (-1.0)
-        totalSol *= (-1.0)
+        solAmount *= (-1.0)        
+    }
+    if(side == 'buy' || side == 'remove') {
+        baseAmount *= (-1)
     }
 
     const t = new HistoryTxn({
@@ -298,7 +339,8 @@ async function savePairTxnToDB(tx, sideType) {
         typeSwap: typeSwap,
         side: side,
         total: total,
-        totalSol: totalSol,
+        solAmount: solAmount,
+        baseAmount: baseAmount,
         tradeSymbol: tradeSymbol,
         fromSymbol: fromSymbol,
         toSymbol: toSymbol
@@ -320,7 +362,9 @@ async function savePairTxnToDB(tx, sideType) {
 
 module.exports = {
     SubscriberTxCounter,
-    fetch_liquidity,
+    PriceProvider,
+    askPriceHistory,
+    fetchLiquidity,
     getTokenTrades,
     getPairTrades,
     saveTokenTxnToDB,

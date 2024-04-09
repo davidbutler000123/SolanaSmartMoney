@@ -77,7 +77,7 @@ async function deleteHistoryDuplicates() {
             type: "$type",
             token: "$token",
             tradeSymbol: "$tradeSymbol",
-            totalSol: "$totalSol",
+            solAmount: "$solAmount",
             },
             ids: { $push: "$_id" },
             count: { $sum: 1 }

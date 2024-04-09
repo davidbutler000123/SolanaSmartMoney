@@ -4,7 +4,9 @@ const {
     getTokenTrades, 
     getPairTrades, 
     savePairTxnToDB,
-    SubscriberTxCounter } = require('./bird_api')
+    SubscriberTxCounter, 
+    PriceProvider,
+    askPriceHistory} = require('./bird_api')
 const axios = require('axios');
 const { logTimeString, fmtTimestr } = require('./utils/utils');
 
@@ -42,6 +44,18 @@ async function aggregateVolume(token, period) {
     let pubTime = Math.floor(poolFromDexScreen.pairCreatedAt / 1000)
     let targetTime = Math.floor((poolFromDexScreen.pairCreatedAt + 48*3600*1000) / 1000)
 
+    let periodType = '1m'
+    switch(period) {
+        case 3: periodType = '3m'; break;
+        case 5: periodType = '5m'; break;
+        case 15: periodType = '15m'; break;
+        case 30: periodType = '30m'; break;
+        case 60: periodType = '1H'; break;
+    }
+
+    await askPriceHistory(PriceProvider.sol_address, 'token', periodType, pubTime, targetTime)
+    await askPriceHistory(token, 'token', periodType, pubTime, targetTime)
+
     let pipeline = [
         // { $unionWith: 'historytxns'},
         // { $match: { token: token, type: "transfer" } },
@@ -60,7 +74,8 @@ async function aggregateVolume(token, period) {
                 type: 1,
                 side: 1,
                 total: 1,
-                totalSol: 1,
+                solAmount: 1,
+                baseAmount: 1,
                 tradeSymbol: 1,
                 tm: { $toInt: { $divide: ["$blockUnixTime", 60 * period] }}
             }
@@ -70,7 +85,7 @@ async function aggregateVolume(token, period) {
                 _id: {tm: "$tm", side: "$side"}, 
                 tx_count: { $sum: 1 },
                 total: { $sum: "$total"},
-                totalSol: { $sum: "$totalSol"}
+                solAmount: { $sum: "$solAmount"}
             }
         },
         {
@@ -97,7 +112,8 @@ async function aggregateLiquidity(token, period) {
                 type: 1,
                 side: 1,
                 total: 1,
-                totalSol: 1,
+                solAmount: 1,
+                baseAmount: 1,
                 tradeSymbol: 1,
                 tm: { $toInt: { $divide: ["$blockUnixTime", 60 * period] }}
             }
@@ -107,7 +123,8 @@ async function aggregateLiquidity(token, period) {
                 _id: {tm: "$tm", side: "$side"}, 
                 tx_count: { $sum: 1 },
                 total: { $sum: "$total"},
-                totalSol: { $sum: "$totalSol"}
+                solAmount: { $sum: "$solAmount"},
+                baseAmount: { $sum: "$baseAmount"}
             }
         },
         {
@@ -125,16 +142,18 @@ const calcMetrics = (token, period) => {
         await askPriceFromDexScreen(token, resolve)
         if(!poolFromDexScreen) return
         //await deleteDuplicates()
+
         let initAddTxn = await HistoryTxn.find({token:token, type:'liquidity', side:'add'}).sort({blockUnixTime:1}).limit(2)
         if(initAddTxn.length > 1) initAddTxn = initAddTxn[0]
         let volRecords = await aggregateVolume(token, period)
-        let liqRecords = []
-        // let liqRecords = await aggregateLiquidity(token, period)
+        let liqRecords = await aggregateLiquidity(token, period)
 
         let initLiq = 0
-        if(initAddTxn && initAddTxn.totalSol) {
-            console.log('init sol = ' + initAddTxn.totalSol)
-            initLiq = initAddTxn.totalSol
+        let totalSupply = 0
+        if(initAddTxn && initAddTxn.solAmount) {
+            console.log('init sol = ' + initAddTxn.solAmount)
+            initLiq = initAddTxn.solAmount
+            //totalSupply = initAddTxn.baseAmount
         }
         // console.log('liqRecords = ')
         // console.log(liqRecords)
@@ -144,18 +163,21 @@ const calcMetrics = (token, period) => {
             pubTime = volRecords[0]._id.tm
             lastTime = volRecords[volRecords.length - 1]._id.tm
         }
-        if(liqRecords.length > 0) {
-            if(pubTime > liqRecords[0]._id.tm)
-                pubTime = liqRecords[0]._id.tm
-            if(lastTime < liqRecords[liqRecords.length - 1]._id.tm)
-                lastTime = liqRecords[liqRecords.length - 1]._id.tm
-        }
+        // if(liqRecords.length > 0) {
+        //     if(pubTime > liqRecords[0]._id.tm)
+        //         pubTime = liqRecords[0]._id.tm
+        //     if(lastTime < liqRecords[liqRecords.length - 1]._id.tm)
+        //         lastTime = liqRecords[liqRecords.length - 1]._id.tm
+        // }
         let results = []
         for(var t = 0; t <= lastTime - pubTime; t++) {
+            let liqBins = liqRecords.filter(item => item._id.tm == (pubTime + t))
+            if(liqBins.length > 0) totalSupply += liqBins[0].baseAmount
+            let tokenPrice = PriceProvider.queryToken((pubTime + t) * period)
             results.push({
                 bin: t + 1,
                 timestamp: 0,
-                fdv: 0,
+                fdv: totalSupply * tokenPrice,
                 initLiq: initLiq,
                 liqSol: 0,
                 totalVolume: 0,
@@ -195,7 +217,7 @@ const calcMetrics = (token, period) => {
             }
             totVol += volAdd * item.total
             
-            totSol += item.totalSol
+            totSol += item.solAmount
             results[bin].timestamp = timestamp
             results[bin].liqSol = totSol
             results[bin].totalVolume = totVol
@@ -210,7 +232,7 @@ const calcMetrics = (token, period) => {
                     binSol = 0
                 }
             }
-            binSol += item.totalSol
+            binSol += item.solAmount
             prevBin = bin
         }
 
@@ -218,9 +240,7 @@ const calcMetrics = (token, period) => {
             let liqStartTime = liqRecords[0]._id.tm
             liqRecords.forEach(item => {
                 let t = item._id.tm - pubTime
-                // console.log(`${item._id.tm} - ${pubTime}`)
-                //results[t].deltaLiq = item.totalSol                
-                results[t].deltaLiq = item.totalSol
+                // results[t].deltaLiq = item.solAmount
             })
         }
 
@@ -230,6 +250,7 @@ const calcMetrics = (token, period) => {
         //results[lastIdx].liqSol = poolFromDexScreen.liquidity.usd        
         for(let i = lastIdx - 1; i >= 0; i--) {            
             // results[i].liqSol = results[i + 1].liqSol - results[i].deltaLiq
+            results[i].deltaFdv = results[i + 1].fdv - results[i].fdv
             results[i].deltaVolume = results[i + 1].totalVolume - results[i].totalVolume
             results[i].deltaBuyVolume = results[i + 1].buyVolume - results[i].buyVolume
             results[i].deltaSellVolume = results[i + 1].sellVolume - results[i].sellVolume
@@ -474,7 +495,7 @@ async function getFetchPercent(token, pair) {
         // console.log(records.map(item=>({
         //     blockUnixTime: fmtTimestr(item.blockUnixTime * 1000),
         //     side: item.side,
-        //     totalSol: item.totalSol
+        //     solAmount: item.solAmount
         // })).slice(0, 3))
     }
     
