@@ -42,7 +42,7 @@ async function askPriceFromDexScreen(token, resolve) {
 
 async function aggregateVolume(token, period) {
     let pubTime = Math.floor(poolFromDexScreen.pairCreatedAt / 1000)
-    let targetTime = Math.floor((poolFromDexScreen.pairCreatedAt + 48*3600*1000) / 1000)
+    let targetTime = Math.floor((poolFromDexScreen.pairCreatedAt + 49*3600*1000) / 1000)
 
     let periodType = '1m'
     switch(period) {
@@ -60,7 +60,7 @@ async function aggregateVolume(token, period) {
         // { $unionWith: 'historytxns'},
         // { $match: { token: token, type: "transfer" } },
         { $match: { 
-            token: token,
+            token: token,            
             blockUnixTime: {                
                 $lt: targetTime + 1
             } } 
@@ -100,11 +100,21 @@ async function aggregateVolume(token, period) {
 }
 
 async function aggregateLiquidity(token, period) {
+    let targetTime = Math.floor((poolFromDexScreen.pairCreatedAt + 49*3600*1000) / 1000)
+
     let pipeline = [
         // { $unionWith: 'historytxns'},
-        { $match: { token: token, type: "liquidity" } },
-        { $project: 
-            {
+        { 
+            $match: { 
+                token: token, 
+                type: "liquidity",
+                blockUnixTime: {                
+                    $lt: targetTime + 1
+                } 
+            }  
+        },
+        { 
+            $project: {
                 blockUnixTime: 1,
                 source: 1,
                 owner: 1,
@@ -370,7 +380,7 @@ const calcHolders = (token, period) => {
 async function fetchPairTradeHistoryForSwap(pair) {
     let pairCreateTime = new Date(poolFromDexScreen.pairCreatedAt)
     console.log(`pairCreatetime = ${pairCreateTime.toLocaleDateString()}`)
-    let targetTime = poolFromDexScreen.pairCreatedAt + 48*3600*1000
+    let targetTime = poolFromDexScreen.pairCreatedAt + 49*3600*1000
     let nOffset = 0
     let stepSize = 10000, direct = 1      // step for pair trades
     let approxReach = false
@@ -429,6 +439,7 @@ async function fetchPairTradeHistoryForSwap(pair) {
 
 async function fetchPairTradeHistoryForLiquidity(pair) {
     let nOffset = 0
+    let targetTime = poolFromDexScreen.pairCreatedAt + 49*3600*1000
     while(true) {
         let records = []
         try {
@@ -438,7 +449,7 @@ async function fetchPairTradeHistoryForLiquidity(pair) {
             break
         } 
         records.forEach(tx => {
-            savePairTxnToDB(tx, 'add')
+            if(tx.blockUnixTime * 1000 <= targetTime) savePairTxnToDB(tx, 'add')
         })
         if(records.length == 0) break
         let txnTime = records[records.length - 1].blockUnixTime * 1000
@@ -456,7 +467,7 @@ async function fetchPairTradeHistoryForLiquidity(pair) {
             break
         } 
         records.forEach(tx => {
-            savePairTxnToDB(tx, 'remove')
+            if(tx.blockUnixTime * 1000 <= targetTime) savePairTxnToDB(tx, 'remove')
         })
         if(records.length == 0) break
         let txnTime = records[records.length - 1].blockUnixTime * 1000
@@ -469,7 +480,7 @@ async function getFetchPercent(token, pair) {
 
     let percent = 0
     let pubTime = Math.floor(poolFromDexScreen.pairCreatedAt / 1000)
-    let targetTime = Math.floor((poolFromDexScreen.pairCreatedAt + 48*3600*1000) / 1000)
+    let targetTime = Math.floor((poolFromDexScreen.pairCreatedAt + 49*3600*1000) / 1000)
     console.log(`pair =  ${pair}, ${fmtTimestr(poolFromDexScreen.pairCreatedAt)}`)
 
     let pipe = [

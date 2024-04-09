@@ -72,13 +72,14 @@ async function deleteHistoryDuplicates() {
     {
         $group: {
             _id: {
-            blockUnixTime: "$blockUnixTime",
-            source: "$source",
-            owner: "$owner",
-            type: "$type",
-            token: "$token",
-            tradeSymbol: "$tradeSymbol",
-            solAmount: "$solAmount",
+                txHash: "$txHash"
+            // blockUnixTime: "$blockUnixTime",
+            // source: "$source",
+            // owner: "$owner",
+            // type: "$type",
+            // token: "$token",
+            // tradeSymbol: "$tradeSymbol",
+            // solAmount: "$solAmount",
             },
             ids: { $push: "$_id" },
             count: { $sum: 1 }
