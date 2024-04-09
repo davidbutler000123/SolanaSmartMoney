@@ -2,7 +2,6 @@ const { Transaction, HistoryTxn } = require('./models')
 const { connectBirdeyeWss } = require('./subscribe_txs_token')
 const { SubscriberTxCounter } = require('./bird_api')
 const { logTimeString } = require('./utils/utils')
-const { SalesTrackerHighestNumberTxnPerDayRequest } = require('@hellomoon/api')
 
 const   DB_RANGE_TIME = process.env.DB_RANGE_TIME
 
