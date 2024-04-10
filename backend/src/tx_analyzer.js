@@ -82,10 +82,11 @@ async function aggregateVolume(token, period) {
         },
         { $group:
             { 
-                _id: {tm: "$tm", side: "$side"}, 
+                _id: {tm: "$tm", side: "$side", owner: "$owner"}, 
                 tx_count: { $sum: 1 },
                 total: { $sum: "$total"},
-                solAmount: { $sum: "$solAmount"}
+                solAmount: { $sum: "$solAmount"},
+                baseAmount: { $sum: "$baseAmount"}
             }
         },
         {
@@ -95,6 +96,7 @@ async function aggregateVolume(token, period) {
             
     // let records = await Transaction.aggregate(pipeline).exec()
     let records = await HistoryTxn.aggregate(pipeline).exec()
+    if(records.length > 0) records.pop()
     console.log('aggregateVolume: records.length = ' + records.length)
     return records
 }
@@ -179,11 +181,11 @@ const calcMetrics = (token, period) => {
         //     if(lastTime < liqRecords[liqRecords.length - 1]._id.tm)
         //         lastTime = liqRecords[liqRecords.length - 1]._id.tm
         // }
-        let results = []
-        for(var t = 0; t <= lastTime - pubTime; t++) {
+        let results = []        
+        for(var t = 0; t < lastTime - pubTime; t++) {
             let liqBins = liqRecords.filter(item => item._id.tm == (pubTime + t))
             if(liqBins.length > 0) totalSupply += liqBins[0].baseAmount
-            let tokenPrice = PriceProvider.queryToken((pubTime + t) * period)
+            let tokenPrice = PriceProvider.queryToken((pubTime + t) * period)            
             results.push({
                 bin: t + 1,
                 timestamp: 0,
@@ -212,9 +214,11 @@ const calcMetrics = (token, period) => {
         let totSol = 0
         let binSol = 0
         let prevBin = 0
-        for(let i = 0; i < volRecords.length; i++) {
+        let wallets = []
+        for(let i = 0; i < volRecords.length - 1; i++) {
             let item = volRecords[i]
             let bin = item._id.tm - pubTime
+            if(bin >= results.length) continue
             let timestamp = fmtTimestr(item._id.tm * period * 60000)
             let volAdd = 0, buyAdd = 0, sellAdd = 0;
             if(item._id.side == "buy") {
@@ -240,9 +244,22 @@ const calcMetrics = (token, period) => {
                 if(prevBin >= 0 && prevBin < results.length) {
                     results[prevBin].deltaLiq = binSol
                     binSol = 0
+                    let totalHolders = wallets.filter((w) => Math.abs(w.baseAmount) > 10).length
+                    results[prevBin].totalHolders = totalHolders                    
                 }
             }
             binSol += item.solAmount
+            let wIndex = wallets.findIndex((w) => (w.owner == item._id.owner))            
+            if(wIndex >= 0) {
+                wallets[wIndex].baseAmount += item.baseAmount
+            }
+            else {
+                wallets.push({
+                    owner: item._id.owner,
+                    baseAmount: item.baseAmount
+                })
+            }
+
             prevBin = bin
         }
 
@@ -267,6 +284,7 @@ const calcMetrics = (token, period) => {
             results[i].deltaAllTx = results[i + 1].totalTx - results[i].totalTx
             results[i].deltaBuyTx = results[i + 1].buyTx - results[i].buyTx
             results[i].deltaSellTx = results[i + 1].sellTx - results[i].sellTx
+            results[i].deltaHolders = results[i + 1].totalHolders - results[i].totalHolders
         }
 
         let tokenSymbol = "unknown"
@@ -528,6 +546,9 @@ async function fetchTokenTradesHistory(token)
         let pair = poolFromDexScreen.pairAddress
         if(!pair) return
 
+        // console.log(poolFromDexScreen)
+        //checkMintAuthDisabled()
+
         let fPercent = await getFetchPercent(token, pair)
         let nState = 0
         if(fPercent == 0) {
@@ -550,7 +571,7 @@ async function fetchTokenTradesHistory(token)
             percent: fPercent
         })
 
-        if(nState == 0 || nState == 1) return
+        if(SubscriberTxCounter.fetch_active || nState == 0 || nState == 1) return
 
         SubscriberTxCounter.fetch_active = true
         await fetchPairTradeHistoryForSwap(pair)
