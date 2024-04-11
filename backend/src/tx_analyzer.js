@@ -189,6 +189,8 @@ const calcMetrics = (token, period) => {
             results.push({
                 bin: t + 1,
                 timestamp: 0,
+                renounced: 0,
+                burned: 0,
                 fdv: totalSupply * tokenPrice,
                 initLiq: initLiq,
                 liqSol: 0,
@@ -210,6 +212,8 @@ const calcMetrics = (token, period) => {
                 deltaHolders: 0
             })
         }
+        let renounced = 0
+        let burned = 0
         let totVol = 0
         let totSol = 0
         let binSol = 0
@@ -229,6 +233,12 @@ const calcMetrics = (token, period) => {
                 volAdd = -1;
                 buyAdd = 1;
             }
+            if(item._id.side == 'add') {
+                renounced = 1
+            }
+            if(item._id.side == 'remove') {
+                burned = 1
+            }
             totVol += volAdd * item.total
             
             totSol += item.solAmount
@@ -242,10 +252,15 @@ const calcMetrics = (token, period) => {
             results[bin].sellTx += sellAdd * item.tx_count;
             if(prevBin != bin) {
                 if(prevBin >= 0 && prevBin < results.length) {
+                    results[prevBin].renounced = renounced
+                    results[prevBin].burned = burned
                     results[prevBin].deltaLiq = binSol
-                    binSol = 0
                     let totalHolders = wallets.filter((w) => Math.abs(w.baseAmount) > 10).length
                     results[prevBin].totalHolders = totalHolders                    
+
+                    renounced = 0
+                    burned = 0
+                    binSol = 0
                 }
             }
             binSol += item.solAmount
