@@ -82,7 +82,7 @@ async function aggregateVolume(token, period) {
         },
         { $group:
             { 
-                _id: {tm: "$tm", side: "$side", owner: "$owner"}, 
+                _id: {tm: "$tm", side: "$side", owner: "$owner" }, 
                 tx_count: { $sum: 1 },
                 total: { $sum: "$total"},
                 solAmount: { $sum: "$solAmount"},
@@ -214,7 +214,7 @@ const calcMetrics = (token, period) => {
         let totSol = 0
         let binSol = 0
         let prevBin = 0
-        let wallets = []
+        let wallets = {}
         for(let i = 0; i < volRecords.length - 1; i++) {
             let item = volRecords[i]
             let bin = item._id.tm - pubTime
@@ -244,21 +244,24 @@ const calcMetrics = (token, period) => {
                 if(prevBin >= 0 && prevBin < results.length) {
                     results[prevBin].deltaLiq = binSol
                     binSol = 0
-                    let totalHolders = wallets.filter((w) => Math.abs(w.baseAmount) > 10).length
+                    //let totalHolders = wallets.filter((w) => Math.abs(w.baseAmount) > 10).length
+                    let totalHolders = Object.values(wallets).filter((w) => Math.abs(w) > 10).length
                     results[prevBin].totalHolders = totalHolders                    
                 }
             }
             binSol += item.solAmount
-            let wIndex = wallets.findIndex((w) => (w.owner == item._id.owner))            
-            if(wIndex >= 0) {
-                wallets[wIndex].baseAmount += item.baseAmount
-            }
-            else {
-                wallets.push({
-                    owner: item._id.owner,
-                    baseAmount: item.baseAmount
-                })
-            }
+            if(wallets[item._id.owner]) wallets[item._id.owner] += Math.floor(item.baseAmount)
+            else wallets[item._id.owner] = Math.floor(item.baseAmount)
+            // let wIndex = wallets.findIndex((w) => (w.owner == item._id.owner))            
+            // if(wIndex >= 0) {
+            //     wallets[wIndex].baseAmount += Math.floor(item.baseAmount)
+            // }
+            // else {
+            //     wallets.push({
+            //         owner: item._id.owner,
+            //         baseAmount: Math.floor(item.baseAmount)
+            //     })
+            // }
 
             prevBin = bin
         }
