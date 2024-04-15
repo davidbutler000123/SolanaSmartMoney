@@ -247,13 +247,8 @@ const calcMetrics = (token, period) => {
                     results[prevBin].renounced = renounced
                     results[prevBin].burned = burned
                     results[prevBin].deltaLiq = binSol
-<<<<<<< HEAD
-                    binSol = 0
-                    //let totalHolders = wallets.filter((w) => Math.abs(w.baseAmount) > 10).length
+
                     let totalHolders = Object.values(wallets).filter((w) => Math.abs(w) > 10).length
-=======
-                    let totalHolders = wallets.filter((w) => Math.abs(w.baseAmount) > 10).length
->>>>>>> be307f845db9f0e87f9692a0ce957127c6353730
                     results[prevBin].totalHolders = totalHolders                    
 
                     renounced = 0
