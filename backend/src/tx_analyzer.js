@@ -165,22 +165,14 @@ const calcMetrics = (token, period) => {
         if(initAddTxn && initAddTxn.solAmount) {
             console.log('init sol = ' + initAddTxn.solAmount)
             initLiq = initAddTxn.solAmount
-            //totalSupply = initAddTxn.baseAmount
         }
-        // console.log('liqRecords = ')
-        // console.log(liqRecords)
 
         let pubTime = 0, lastTime = 0
         if(volRecords.length > 0) {
             pubTime = volRecords[0]._id.tm
             lastTime = volRecords[volRecords.length - 1]._id.tm
         }
-        // if(liqRecords.length > 0) {
-        //     if(pubTime > liqRecords[0]._id.tm)
-        //         pubTime = liqRecords[0]._id.tm
-        //     if(lastTime < liqRecords[liqRecords.length - 1]._id.tm)
-        //         lastTime = liqRecords[liqRecords.length - 1]._id.tm
-        // }
+        
         let results = []        
         for(var t = 0; t < lastTime - pubTime; t++) {
             let liqBins = liqRecords.filter(item => item._id.tm == (pubTime + t))
@@ -189,6 +181,8 @@ const calcMetrics = (token, period) => {
             results.push({
                 bin: t + 1,
                 timestamp: 0,
+                renounced: 0,
+                burned: 0,
                 fdv: totalSupply * tokenPrice,
                 initLiq: initLiq,
                 liqSol: 0,
@@ -210,6 +204,8 @@ const calcMetrics = (token, period) => {
                 deltaHolders: 0
             })
         }
+        let renounced = 0
+        let burned = 0
         let totVol = 0
         let totSol = 0
         let binSol = 0
@@ -229,6 +225,12 @@ const calcMetrics = (token, period) => {
                 volAdd = -1;
                 buyAdd = 1;
             }
+            if(item._id.side == 'add') {
+                renounced = 1
+            }
+            if(item._id.side == 'remove') {
+                burned = 1
+            }
             totVol += volAdd * item.total
             
             totSol += item.solAmount
@@ -242,11 +244,21 @@ const calcMetrics = (token, period) => {
             results[bin].sellTx += sellAdd * item.tx_count;
             if(prevBin != bin) {
                 if(prevBin >= 0 && prevBin < results.length) {
+                    results[prevBin].renounced = renounced
+                    results[prevBin].burned = burned
                     results[prevBin].deltaLiq = binSol
+<<<<<<< HEAD
                     binSol = 0
                     //let totalHolders = wallets.filter((w) => Math.abs(w.baseAmount) > 10).length
                     let totalHolders = Object.values(wallets).filter((w) => Math.abs(w) > 10).length
+=======
+                    let totalHolders = wallets.filter((w) => Math.abs(w.baseAmount) > 10).length
+>>>>>>> be307f845db9f0e87f9692a0ce957127c6353730
                     results[prevBin].totalHolders = totalHolders                    
+
+                    renounced = 0
+                    burned = 0
+                    binSol = 0
                 }
             }
             binSol += item.solAmount
@@ -266,20 +278,8 @@ const calcMetrics = (token, period) => {
             prevBin = bin
         }
 
-        if(liqRecords.length > 0) {
-            let liqStartTime = liqRecords[0]._id.tm
-            liqRecords.forEach(item => {
-                let t = item._id.tm - pubTime
-                // results[t].deltaLiq = item.solAmount
-            })
-        }
-
         let lastIdx = results.length - 1        
-        //results[lastIdx].fdv = poolFromDexScreen.fdv
-        //results[lastIdx].liqSol = poolFromDexScreen.liquidity.quote
-        //results[lastIdx].liqSol = poolFromDexScreen.liquidity.usd        
         for(let i = lastIdx - 1; i >= 0; i--) {            
-            // results[i].liqSol = results[i + 1].liqSol - results[i].deltaLiq
             results[i].deltaFdv = results[i + 1].fdv - results[i].fdv
             results[i].deltaVolume = results[i + 1].totalVolume - results[i].totalVolume
             results[i].deltaBuyVolume = results[i + 1].buyVolume - results[i].buyVolume
@@ -302,26 +302,275 @@ const calcMetrics = (token, period) => {
     })
 }
 
-const calcLiquidity = (token, period) => {
+const calcPnlPerToken = (token, rankSize) => {
     return new Promise(async (resolve, reject) => {
 
-        await deleteDuplicates()
+        let pipeline = [
+            // { $unionWith: 'historytxns'},
+            { $match: { token: token, type: "transfer" } 
+            },            
+            { $group:
+                { 
+                    _id: "$owner", 
+                    solAmount: { $sum: "$solAmount"},
+                }
+            },
+            {
+                $sort: {"solAmount": 1}
+            }
+        ]
 
-        let limitTime = Math.floor(Date.now() / 1000) - period
+        let topWallets = await Transaction.aggregate(pipeline).limit(rankSize).exec()
+        let wallets = []
+        let ranking = 1
 
-        let query = { blockUnixTime: {$gt: limitTime}, token: token, type: "liquidity" }
-        let records = await Transaction.find(query)
-        let lpSum = 0
-        records.forEach(element => {
-            lpSum += element.total
-        });
+        let pnls = await Transaction.aggregate([
+            {
+                $match: {
+                    owner: { $in: topWallets.map(item => (item._id)) },
+                    token: token,
+                    type: "transfer"
+                }
+            },
+            {
+                $group: { 
+                    _id: {
+                        owner: '$owner',
+                        side: '$side'
+                    },
+                    solAmount: { $sum: "$solAmount"},
+                    startTime: { $min: "$blockUnixTime"},                    
+                    endTime: { $max: "$blockUnixTime"},
+                }
+            }
+        ]).exec()
         
-        resolve({
-            token: token,
-            change: lpSum,
-            period: period,
-            txs: records
-        })
+        for(let i = 0; i < topWallets.length; i++) {            
+            let wallet = topWallets[i]            
+            let trades = pnls.filter(item => item._id.owner == wallet._id)            
+            let buyTrades = trades.filter(trade => trade._id.side == 'buy')
+            let sellTrades = trades.filter(trade => trade._id.side == 'sell')
+            let profit = 0
+            let loss = 0
+            let startTime = 0, endTime = 0
+            if(sellTrades && sellTrades.length > 0) {
+                profit = (-1) * sellTrades[0].solAmount
+                startTime = sellTrades[0].startTime
+                endTime = sellTrades[0].endTime
+            }
+            if(buyTrades && buyTrades.length > 0) {
+                loss = buyTrades[0].solAmount
+                startTime = buyTrades[0].startTime
+                if(endTime == 0) endTime = buyTrades[0].endTime
+            }
+            let pnlPercent = 0
+            if(loss != 0) pnlPercent = Math.floor(100 * profit / loss)
+            let holdingTime = Math.floor((endTime - startTime) / 60)
+            
+            wallets.push({
+                wallet: wallet._id, 
+                ranking: ranking,
+                holdingTime: holdingTime,
+                profit: profit,
+                cost: loss,
+                pnl: profit,
+                pnlPercent: pnlPercent})
+            ranking++
+        }
+        
+        resolve(wallets)
+    })
+}
+
+const calcTopTrader = (wallet, rankSize) => {
+    return new Promise(async (resolve, reject) => {
+
+        let pipeline = [
+            { $match: { owner: wallet, type: "transfer" } 
+            },            
+            { $group:
+                { 
+                    _id: "$token", 
+                    solAmount: { $sum: "$solAmount"},
+                    symbol: { $first: "$tradeSymbol"}
+                }
+            },
+            {
+                $sort: {"solAmount": 1}
+            }
+        ]
+
+        let topTokens = await Transaction.aggregate(pipeline).limit(rankSize).exec()
+        let tokens = []
+        let ranking = 1
+
+        let pnls = await Transaction.aggregate([
+            {
+                $match: {
+                    token: { $in: topTokens.map(item => (item._id)) },
+                    owner: wallet,
+                    type: "transfer"
+                }
+            },
+            {
+                $group: { 
+                    _id: {
+                        token: '$token',
+                        side: '$side'
+                    },
+                    solAmount: { $sum: "$solAmount"},
+                    startTime: { $min: "$blockUnixTime"},                    
+                    endTime: { $max: "$blockUnixTime"},
+                }
+            }
+        ]).exec()
+        
+        for(let i = 0; i < topTokens.length; i++) {            
+            let token = topTokens[i]            
+            let trades = pnls.filter(item => item._id.token == token._id)            
+            let buyTrades = trades.filter(trade => trade._id.side == 'buy')
+            let sellTrades = trades.filter(trade => trade._id.side == 'sell')
+            let profit = 0
+            let loss = 0
+            let startTime = 0, endTime = 0
+            let symbol = token.symbol
+            if(sellTrades && sellTrades.length > 0) {
+                profit = (-1) * sellTrades[0].solAmount
+                startTime = sellTrades[0].startTime
+                endTime = sellTrades[0].endTime
+            }
+            if(buyTrades && buyTrades.length > 0) {
+                loss = buyTrades[0].solAmount
+                startTime = buyTrades[0].startTime
+                if(endTime == 0) endTime = buyTrades[0].endTime
+            }
+            let pnlPercent = 0
+            if(loss != 0) pnlPercent = Math.floor(100 * profit / loss)
+            let holdingTime = Math.floor((endTime - startTime) / 60)
+            
+            tokens.push({
+                token: token._id,
+                symbol: symbol,
+                ranking: ranking,
+                holdingTime: holdingTime,
+                profit: profit,
+                cost: loss,
+                pnl: profit,
+                pnlPercent: pnlPercent})
+            ranking++
+        }
+        
+        resolve(tokens)
+    })
+}
+
+
+const sortWallets = (rankSize) => {
+    return new Promise(async (resolve, reject) => {
+
+        let pipeline = [
+            { $match: { type: "transfer", tradeSymbol: { $ne: 'SOL'} }},
+            { $group: { _id:'$owner', total: { $sum: '$solAmount'}}},
+            { $sort: { 'total': 1 } }
+        ]
+        let topWallets = await Transaction.aggregate(pipeline, { allowDiskUse: true }).limit(rankSize).exec()
+        let wallets = []
+        let ranking = 1
+
+        let profitsPerSymbol = await Transaction.aggregate([
+            {
+                $match: {
+                    owner: { $in: topWallets.map(item => (item._id)) },
+                    type: "transfer"
+                }
+            },
+            {
+                $group: { 
+                    _id: {
+                        owner: '$owner',
+                        tradeSymbol: '$tradeSymbol'
+                    },
+                    total: { $sum: '$solAmount'}
+                }
+            }
+        ]).exec()
+
+        let profitsPerSymbolAndSide = await Transaction.aggregate([
+            {
+                $match: {
+                    owner: { $in: topWallets.map(item => (item._id)) },
+                    type: "transfer"
+                }
+            },
+            {
+                $group: { 
+                    _id: {
+                        owner: '$owner',
+                        tradeSymbol: '$tradeSymbol',
+                        side: '$side'
+                    },
+                    total: { $sum: '$solAmount'}
+                }
+            }
+        ]).exec()
+        
+        for(let wallet of topWallets) {            
+            let trades = profitsPerSymbol.filter(item => item._id.owner == wallet._id)
+            let tradesPerSide = profitsPerSymbolAndSide.filter(item => item._id.owner == wallet._id)
+            let buyTrades = tradesPerSide.filter(trade => trade._id.side == 'buy')
+            let sellTrades = tradesPerSide.filter(trade => trade._id.side == 'sell')
+            let totalTrades = trades.length
+            let profitTrades = trades.filter(trade => trade.total < 0)
+            let lossTrades = trades.filter(trade => trade.total >= 0)
+            let profitTokens = ''
+            let lossTokens = ''
+            let winToken = 0
+            let lossToken = 0
+            if(profitTrades && profitTrades.length > 0) {
+                profitTokens = profitTrades.map(trade => trade._id.tradeSymbol).join(',')
+                winToken = profitTrades.length
+            }
+            
+            if(lossTrades && lossTrades.length > 0) {
+                lossTokens = lossTrades.map(trade => trade._id.tradeSymbol).join(',')
+                lossToken = lossTrades.length
+            }
+
+            let winRate = `${Math.round(100 * winToken / totalTrades)}%`
+            let totalProfit = (-1) * wallet.total
+            let avgProfit = totalProfit / totalTrades
+            //let tradedTokens = trades.map(trade => trade._id.tradeSymbol).join(',')
+
+            let sellAmount = 0
+            let buyAmount = 0
+            if(sellTrades && sellTrades.length > 0) {
+                for(let k = 0; k < sellTrades.length; k++) sellAmount += sellTrades[k].total
+                sellAmount = (-1) * sellAmount
+            }
+            if(buyTrades && buyTrades.length > 0) {
+                for(let k = 0; k < buyTrades.length; k++) buyAmount += buyTrades[k].total                
+            }
+            let profit = sellAmount - buyAmount
+            let pnlRate = `${Math.round(100 * totalProfit / buyAmount)}%`
+
+            wallets.push({
+                wallet: wallet._id, 
+                ranking: ranking,
+                //profit: profit,
+                totalProfit: totalProfit,
+                cost: buyAmount,
+                winToken: winToken,
+                lossToken: lossToken,
+                profitTokens: profitTokens,
+                lossTokens: lossTokens,
+                avgProfit: avgProfit,
+                pnlRate: pnlRate,
+                winRate: winRate,
+                })
+            ranking++
+        }
+        
+        resolve(wallets)
     })
 }
 
@@ -586,7 +835,9 @@ async function fetchTokenTradesHistory(token)
 
 module.exports = {    
     calcMetrics,
-    calcLiquidity,
+    calcPnlPerToken,
+    calcTopTrader,
+    sortWallets,
     calcVolume,
     calcTxs,
     calcHolders,

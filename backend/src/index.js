@@ -61,8 +61,37 @@ app.get('/api/fetchTokenHistory', (req, res) => {
   })
 })
 
-app.get('/api/calcLiquidity', (req, res) => {  
-  txAanalyzer.calcLiquidity(req.query.token, req.query.period)
+app.get('/api/calcPnlPerToken', (req, res) => {
+  let rankSize = parseInt(req.query.rankSize)
+  if(rankSize <= 0) rankSize = 10
+  if(rankSize > 100) rankSize = 100
+  txAanalyzer.calcPnlPerToken(req.query.token, rankSize)
+  .then(records => {
+    res.send(records)
+  })
+  .catch(err => {
+    res.send([])
+  })
+})
+
+app.get('/api/calcTopTrader', (req, res) => {
+  let rankSize = parseInt(req.query.rankSize)
+  if(rankSize <= 0) rankSize = 10
+  if(rankSize > 100) rankSize = 100
+  txAanalyzer.calcTopTrader(req.query.wallet, rankSize)
+  .then(records => {
+    res.send(records)
+  })
+  .catch(err => {
+    res.send([])
+  })
+})
+
+app.get('/api/sortWallets', (req, res) => {
+  let rankSize = parseInt(req.query.rankSize)
+  if(rankSize <= 0) rankSize = 10
+  if(rankSize > 100) rankSize = 100
+  txAanalyzer.sortWallets(rankSize)
   .then(records => {
     res.send(records)
   })

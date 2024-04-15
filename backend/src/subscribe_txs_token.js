@@ -28,8 +28,13 @@ client.on('connect', async function (connection) {
     });
     connection.on('message', async function (message) {        
         if (message.type === 'utf8') {
-            const msgObj = JSON.parse(message.utf8Data)
-            if(msgObj.type != 'TXS_DATA') return
+            let msgObj = null
+            try {
+                msgObj = JSON.parse(message.utf8Data)
+            } catch (error) {
+                console.log(error)
+            }
+            if(!msgObj || msgObj.type != 'TXS_DATA') return
             const tx = msgObj.data            
 
             if(tx.source.indexOf('raydium') != 0) {
