@@ -75,6 +75,8 @@ def save_calc_metrics(address, period, time_from, time_to):
                     "FDV": item['fdv'],
                     "Renounced": item['renounced'],
                     "Burned": item['burned'],
+                    "Market cap": item['mc'],
+                    "Price": item['price'],
                     "Initial Liquidity": item['initLiq'],
                     "Liquidity SOL": item['liqSol'],
                     "Total Volume": item['totalVolume'],
@@ -126,7 +128,7 @@ def save_calc_metrics(address, period, time_from, time_to):
 
 def save_calc_PnlPerToken(address, ranksize, token_symbol):
 
-    url = f"{d.SERVER_URL}calcPnlPerToken?token={address}&rankSize={ranksize}"
+    url = f"{d.SERVER_URL}calcPnlPerToken?token={address}&rankSize={ranksize}&filterZero={d.FILTER_ZERO_COST}"
     
     count = 0
     while True:
@@ -196,7 +198,7 @@ def save_calc_PnlPerToken(address, ranksize, token_symbol):
 
 def save_calc_TopTrader(address, ranksize):
 
-    url = f"{d.SERVER_URL}calcTopTrader?wallet={address}&rankSize={ranksize}"
+    url = f"{d.SERVER_URL}calcTopTrader?wallet={address}&rankSize={ranksize}&filterZero={d.FILTER_ZERO_COST}"
     
     count = 0
     while True:
@@ -269,7 +271,7 @@ def save_calc_TopTrader(address, ranksize):
 
 def save_sort_wallets(ranksize):
 
-    url = f"{d.SERVER_URL}sortWallets?rankSize={ranksize}"
+    url = f"{d.SERVER_URL}sortWallets?rankSize={ranksize}&filterZero={d.FILTER_ZERO_COST}&filterTokenAtleast={d.TOKEN_ATLEAST_TRADED}"
     
     count = 0
     while True:
