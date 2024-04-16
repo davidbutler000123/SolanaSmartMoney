@@ -73,6 +73,8 @@ def save_calc_metrics(address, period, time_from, time_to):
                     "Bin":item['bin'],
                     "TimeStamp": item['timestamp'],
                     "FDV": item['fdv'],
+                    "Renounced": item['renounced'],
+                    "Burned": item['burned'],
                     "Initial Liquidity": item['initLiq'],
                     "Liquidity SOL": item['liqSol'],
                     "Total Volume": item['totalVolume'],
