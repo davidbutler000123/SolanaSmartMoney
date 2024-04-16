@@ -9,6 +9,7 @@ const {
     askPriceHistory} = require('./bird_api')
 const axios = require('axios');
 const { logTimeString, fmtTimestr } = require('./utils/utils');
+const { TopTokenSellBuyJupRequest } = require('@hellomoon/api');
 
 let poolFromDexScreen = null
 
@@ -207,6 +208,11 @@ const calcMetrics = (token, period) => {
         let renounced = 0
         let burned = 0
         let totVol = 0
+        let totBuyVol = 0
+        let totSellVol = 0
+        let totTx = 0
+        let totBuyTx = 0
+        let totSellTx = 0
         let totSol = 0
         let binSol = 0
         let prevBin = 0
@@ -232,24 +238,32 @@ const calcMetrics = (token, period) => {
                 burned = 1
             }
             totVol += volAdd * item.total
+            totBuyVol -= buyAdd * item.total
+            totSellVol += sellAdd * item.total
             
             totSol += item.solAmount
             results[bin].timestamp = timestamp
             results[bin].liqSol = totSol
             results[bin].totalVolume = totVol
-            results[bin].buyVolume -= buyAdd * item.total
-            results[bin].sellVolume += sellAdd * item.total
-            results[bin].totalTx += item.tx_count;
-            results[bin].buyTx += buyAdd * item.tx_count;
-            results[bin].sellTx += sellAdd * item.tx_count;
+            // results[bin].buyVolume -= buyAdd * item.total
+            // results[bin].sellVolume += sellAdd * item.total
+            results[bin].buyVolume = totBuyVol
+            results[bin].sellVolume = totSellVol
+
+            totTx += item.tx_count
+            totBuyTx += buyAdd * item.tx_count
+            totSellTx += sellAdd * item.tx_count
+            results[bin].totalTx = totTx
+            results[bin].buyTx = totBuyTx
+            results[bin].sellTx = totSellTx
             if(prevBin != bin) {
                 if(prevBin >= 0 && prevBin < results.length) {
                     results[prevBin].renounced = renounced
                     results[prevBin].burned = burned
                     results[prevBin].deltaLiq = binSol
 
-                    let totalHolders = Object.values(wallets).filter((w) => Math.abs(w) > 10).length
-                    results[prevBin].totalHolders = totalHolders                    
+                    let totalHolders = Object.values(wallets).filter((w) => w < -1).length
+                    results[prevBin].totalHolders = totalHolders
 
                     renounced = 0
                     burned = 0
@@ -257,18 +271,8 @@ const calcMetrics = (token, period) => {
                 }
             }
             binSol += item.solAmount
-            if(wallets[item._id.owner]) wallets[item._id.owner] += Math.floor(item.baseAmount)
-            else wallets[item._id.owner] = Math.floor(item.baseAmount)
-            // let wIndex = wallets.findIndex((w) => (w.owner == item._id.owner))            
-            // if(wIndex >= 0) {
-            //     wallets[wIndex].baseAmount += Math.floor(item.baseAmount)
-            // }
-            // else {
-            //     wallets.push({
-            //         owner: item._id.owner,
-            //         baseAmount: Math.floor(item.baseAmount)
-            //     })
-            // }
+            if(wallets[item._id.owner]) wallets[item._id.owner] += item.baseAmount
+            else wallets[item._id.owner] = item.baseAmount
 
             prevBin = bin
         }
