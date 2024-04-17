@@ -157,7 +157,7 @@ const calcMetrics = (token, period) => {
         let totalSupply = await askTotalSupply(token)
 
         let initAddTxn = await HistoryTxn.find({token:token, type:'liquidity', side:'add'}).sort({blockUnixTime:1}).limit(2)
-        if(initAddTxn.length > 1) initAddTxn = initAddTxn[0]
+        if(initAddTxn.length > 0) initAddTxn = initAddTxn[0]
         let volRecords = await aggregateVolume(token, period)
         let liqRecords = await aggregateLiquidity(token, period)
 
@@ -175,8 +175,10 @@ const calcMetrics = (token, period) => {
             initLiqUsd = initLiqSol * PriceProvider.querySol(pubTime * 60 * period)
         }
         
-        let results = []        
+        let results = []
+        let tzOffset = new Date().getTimezoneOffset()
         for(var t = 0; t < lastTime - pubTime; t++) {
+            let timestamp = fmtTimestr(((pubTime + t) * period + tzOffset) * 60000)
             let liqBins = liqRecords.filter(item => item._id.tm == (pubTime + t))
             if(liqBins.length > 0) {
                 currentSupply += liqBins[0].baseAmount
@@ -185,7 +187,7 @@ const calcMetrics = (token, period) => {
             let solPrice = PriceProvider.querySol((pubTime + t) * 60 * period)
             results.push({
                 bin: t + 1,
-                timestamp: 0,
+                timestamp: timestamp,
                 renounced: 0,
                 burned: 0,
                 fdv: totalSupply * tokenPrice,
@@ -231,7 +233,7 @@ const calcMetrics = (token, period) => {
             let item = volRecords[i]
             let bin = item._id.tm - pubTime
             if(bin >= results.length) continue
-            let timestamp = fmtTimestr(item._id.tm * period * 60000)
+            
             let solPrice = PriceProvider.querySol(item._id.tm * 60 * period)
             let volAdd = 0, buyAdd = 0, sellAdd = 0;
             if(item._id.side == "buy") {
@@ -253,7 +255,6 @@ const calcMetrics = (token, period) => {
             totSellVol += sellAdd * item.total
             
             totSol += item.solAmount
-            results[bin].timestamp = timestamp
             results[bin].liqSol = totSol
             results[bin].liqUsd = totSol * solPrice
             results[bin].totalVolume = totVol
@@ -707,10 +708,11 @@ const calcHolders = (token, period) => {
     })
 }
 
-async function fetchPairTradeHistoryForSwap(pair) {
+async function fetchPairTradeHistoryForSwap(pair, until) {
     let pairCreateTime = new Date(poolFromDexScreen.pairCreatedAt)
     console.log(`pairCreatetime = ${pairCreateTime.toLocaleDateString()}`)
-    let targetTime = poolFromDexScreen.pairCreatedAt + 49*3600*1000
+    let targetTime = poolFromDexScreen.pairCreatedAt + (24*until + 1)*3600*1000
+    if(until == 0) targetTime = Date.now()
     let nOffset = 0
     let stepSize = 10000, direct = 1      // step for pair trades
     let approxReach = false
@@ -767,9 +769,10 @@ async function fetchPairTradeHistoryForSwap(pair) {
     }
 }
 
-async function fetchPairTradeHistoryForLiquidity(pair) {
+async function fetchPairTradeHistoryForLiquidity(pair, until) {
     let nOffset = 0
-    let targetTime = poolFromDexScreen.pairCreatedAt + 49*3600*1000
+    let targetTime = poolFromDexScreen.pairCreatedAt + (24*until + 1)*3600*1000
+    if(until == 0) targetTime = Date.now()
     while(true) {
         let records = []
         try {
@@ -849,7 +852,7 @@ async function getFetchPercent(token, pair) {
       2 - insufficient, inactive, 
       3 - not initiated
   */
-async function fetchTokenTradesHistory(token)
+async function fetchTokenTradesHistory(token, until)
 {
     return new Promise(async (resolve, reject) => {
         await askPriceFromDexScreen(token, resolve)
@@ -886,8 +889,8 @@ async function fetchTokenTradesHistory(token)
         if(SubscriberTxCounter.fetch_active || nState == 0 || nState == 1) return
 
         SubscriberTxCounter.fetch_active = true
-        await fetchPairTradeHistoryForSwap(pair)
-        await fetchPairTradeHistoryForLiquidity(pair)
+        await fetchPairTradeHistoryForSwap(pair, until)
+        await fetchPairTradeHistoryForLiquidity(pair, until)
         await deleteHistoryDuplicates()
         SubscriberTxCounter.fetch_active = false
     })

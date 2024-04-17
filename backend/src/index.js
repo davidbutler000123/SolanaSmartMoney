@@ -50,7 +50,10 @@ app.get('/api/calcMetrics', (req, res) => {
 })
 
 app.get('/api/fetchTokenHistory', (req, res) => {
-  txAanalyzer.fetchTokenTradesHistory(req.query.token)
+  let until = parseInt(req.query.until)
+  if(until < 0) until = 2
+  if(until > 4) until = 4
+  txAanalyzer.fetchTokenTradesHistory(req.query.token, until)
   .then(result => {
     res.send(result)
   })
