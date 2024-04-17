@@ -69,7 +69,8 @@ app.get('/api/calcPnlPerToken', (req, res) => {
   if(rankSize > 100) rankSize = 100
   let filterZero = parseInt(req.query.filterZero)
   if(filterZero < 0) filterZero = 1
-  txAanalyzer.calcPnlPerToken(req.query.token, rankSize, filterZero)
+  let sortMode = req.query.sortMode
+  txAanalyzer.calcPnlPerToken(req.query.token, rankSize, filterZero, sortMode)
   .then(records => {
     res.send(records)
   })
@@ -84,7 +85,8 @@ app.get('/api/calcTopTrader', (req, res) => {
   if(rankSize > 100) rankSize = 100
   let filterZero = parseInt(req.query.filterZero)
   if(filterZero < 0) filterZero = 1
-  txAanalyzer.calcTopTrader(req.query.wallet, rankSize, filterZero)
+  let sortMode = req.query.sortMode
+  txAanalyzer.calcTopTrader(req.query.wallet, rankSize, filterZero, sortMode)
   .then(records => {
     res.send(records)
   })
@@ -101,7 +103,8 @@ app.get('/api/sortWallets', (req, res) => {
   if(filterZero < 0) filterZero = 1
   let filterTokenAtleast = parseInt(req.query.filterTokenAtleast)
   if(filterTokenAtleast < 1) filterZero = 2
-  txAanalyzer.sortWallets(rankSize, filterZero, filterTokenAtleast)
+  let sortMode = req.query.sortMode
+  txAanalyzer.sortWallets(rankSize, filterZero, filterTokenAtleast, sortMode)
   .then(records => {
     res.send(records)
   })
