@@ -261,7 +261,7 @@ const calcMetrics = (token, period) => {
             results[bin].buyTx = totBuyTx
             results[bin].sellTx = totSellTx
             if(prevBin != bin) {
-                if(prevBin >= 0 && prevBin < results.length) {
+                if(bin >= 0 && bin < results.length) {
                     results[prevBin].renounced = renounced
                     results[prevBin].burned = burned
                     results[prevBin].deltaLiq = binSol
@@ -292,6 +292,7 @@ const calcMetrics = (token, period) => {
             results[i].deltaSellTx = results[i + 1].sellTx - results[i].sellTx
             results[i].deltaHolders = results[i + 1].totalHolders - results[i].totalHolders
         }
+        if(results.length > 2) results.pop()
 
         let tokenSymbol = "unknown"
         let symbolTx = await Transaction.aggregate([{$match: {token: token, type: "transfer"}}]).limit(1).exec()
@@ -305,7 +306,7 @@ const calcMetrics = (token, period) => {
     })
 }
 
-const calcPnlPerToken = (token, rankSize, filterZero) => {
+const calcPnlPerToken = (token, rankSize, filterZero, sortMode) => {
     return new Promise(async (resolve, reject) => {
 
         let pipeline = [
@@ -366,9 +367,10 @@ const calcPnlPerToken = (token, rankSize, filterZero) => {
                 startTime = Math.min(startTime, buyTrades[0].startTime)
                 endTime = Math.max(endTime, buyTrades[0].endTime)
             }
+            let pnl = profit - loss
             let pnlPercent = 0
             if(filterZero && loss == 0) continue
-            if(loss != 0) pnlPercent = Math.floor(100 * profit / loss)
+            if(loss != 0) pnlPercent = Math.floor(100 * pnl / loss)
             if(startTime == 0) {
                 startTime = endTime
                 endTime = Date.now() / 1000
@@ -381,18 +383,26 @@ const calcPnlPerToken = (token, rankSize, filterZero) => {
                 holdingTime: holdingTime,
                 profit: profit,
                 cost: loss,
-                pnl: profit,
+                pnl: pnl,
                 pnlPercent: pnlPercent})
             
             if(wallets.length >= rankSize) break
             ranking++
+        }
+
+        if(sortMode == "P") {
+            wallets.sort((a,b) => (b.pnlPercent - a.pnlPercent))
+            ranking = 1
+            wallets.forEach(item => {
+                item.ranking = ranking++
+            })
         }
         
         resolve(wallets)
     })
 }
 
-const calcTopTrader = (wallet, rankSize, filterZero) => {
+const calcTopTrader = (wallet, rankSize, filterZero, sortMode) => {
     return new Promise(async (resolve, reject) => {
 
         let pipeline = [
@@ -454,9 +464,10 @@ const calcTopTrader = (wallet, rankSize, filterZero) => {
                 startTime = Math.min(startTime, buyTrades[0].startTime)
                 endTime = Math.max(endTime, buyTrades[0].endTime)
             }
+            let pnl = profit - loss
             let pnlPercent = 0
             if(filterZero && loss == 0) continue
-            if(loss != 0) pnlPercent = Math.floor(100 * profit / loss)
+            if(loss != 0) pnlPercent = Math.floor(100 * pnl / loss)
             if(startTime == 0) {
                 startTime = endTime
                 endTime = Date.now() / 1000
@@ -470,7 +481,7 @@ const calcTopTrader = (wallet, rankSize, filterZero) => {
                 holdingTime: holdingTime,
                 profit: profit,
                 cost: loss,
-                pnl: profit,
+                pnl: pnl,
                 pnlPercent: pnlPercent})
                 
             if(tokens.length >= rankSize) break
@@ -478,12 +489,20 @@ const calcTopTrader = (wallet, rankSize, filterZero) => {
             ranking++
         }
         
+        if(sortMode == "P") {
+            tokens.sort((a,b) => (b.pnlPercent - a.pnlPercent))
+            ranking = 1
+            tokens.forEach(item => {
+                item.ranking = ranking++
+            })
+        }
+
         resolve(tokens)
     })
 }
 
 
-const sortWallets = (rankSize, filterZero, filterTokensAtleast) => {
+const sortWallets = (rankSize, filterZero, filterTokensAtleast, sortMode) => {
     return new Promise(async (resolve, reject) => {
 
         let pipeline = [
@@ -574,7 +593,7 @@ const sortWallets = (rankSize, filterZero, filterTokensAtleast) => {
 
             let profit = sellAmount - buyAmount
             let pnlRate = buyAmount > 0 ? 
-                            `${Math.round(100 * totalProfit / buyAmount)}%` : 'Infinity'
+                            Math.round(100 * totalProfit / buyAmount) : 999999
 
             wallets.push({
                 wallet: wallet._id, 
@@ -595,6 +614,14 @@ const sortWallets = (rankSize, filterZero, filterTokensAtleast) => {
             if(wallets.length >= rankSize) break
         }
         
+        console.log('sortMode = ' + sortMode)
+        if(sortMode == "P") wallets.sort((a,b) => (b.pnlRate - a.pnlRate))
+        ranking = 1
+        wallets.forEach(item => { 
+            item.pnlRate = `${item.pnlRate}%` 
+            item.ranking = ranking++
+        })
+
         resolve(wallets)
     })
 }
