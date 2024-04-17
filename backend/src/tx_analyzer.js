@@ -3,6 +3,7 @@ const { deleteDuplicates, deleteHistoryDuplicates } = require('./trade_indexer')
 const { 
     getTokenTrades, 
     getPairTrades, 
+    askTotalSupply,
     savePairTxnToDB,
     SubscriberTxCounter, 
     PriceProvider,
@@ -98,7 +99,6 @@ async function aggregateVolume(token, period) {
     // let records = await Transaction.aggregate(pipeline).exec()
     let records = await HistoryTxn.aggregate(pipeline).exec()
     if(records.length > 0) records.pop()
-    console.log('aggregateVolume: records.length = ' + records.length)
     return records
 }
 
@@ -155,6 +155,7 @@ const calcMetrics = (token, period) => {
         await askPriceFromDexScreen(token, resolve)
         if(!poolFromDexScreen) return
         //await deleteDuplicates()
+        let totalSupply = await askTotalSupply(token)
 
         let initAddTxn = await HistoryTxn.find({token:token, type:'liquidity', side:'add'}).sort({blockUnixTime:1}).limit(2)
         if(initAddTxn.length > 1) initAddTxn = initAddTxn[0]
@@ -162,7 +163,7 @@ const calcMetrics = (token, period) => {
         let liqRecords = await aggregateLiquidity(token, period)
 
         let initLiq = 0
-        let totalSupply = 0
+        let currentSupply = 0
         if(initAddTxn && initAddTxn.solAmount) {
             console.log('init sol = ' + initAddTxn.solAmount)
             initLiq = initAddTxn.solAmount
@@ -177,14 +178,18 @@ const calcMetrics = (token, period) => {
         let results = []        
         for(var t = 0; t < lastTime - pubTime; t++) {
             let liqBins = liqRecords.filter(item => item._id.tm == (pubTime + t))
-            if(liqBins.length > 0) totalSupply += liqBins[0].baseAmount
-            let tokenPrice = PriceProvider.queryToken((pubTime + t) * period)            
+            if(liqBins.length > 0) {
+                currentSupply += liqBins[0].baseAmount
+            }
+            let tokenPrice = PriceProvider.queryToken((pubTime + t) * 60 * period)
             results.push({
                 bin: t + 1,
                 timestamp: 0,
                 renounced: 0,
                 burned: 0,
                 fdv: totalSupply * tokenPrice,
+                mc: currentSupply * tokenPrice,
+                price: tokenPrice,                
                 initLiq: initLiq,
                 liqSol: 0,
                 totalVolume: 0,
@@ -301,7 +306,7 @@ const calcMetrics = (token, period) => {
     })
 }
 
-const calcPnlPerToken = (token, rankSize) => {
+const calcPnlPerToken = (token, rankSize, filterZero) => {
     return new Promise(async (resolve, reject) => {
 
         let pipeline = [
@@ -319,7 +324,7 @@ const calcPnlPerToken = (token, rankSize) => {
             }
         ]
 
-        let topWallets = await Transaction.aggregate(pipeline).limit(rankSize).exec()
+        let topWallets = await Transaction.aggregate(pipeline).limit(2 * rankSize).exec()
         let wallets = []
         let ranking = 1
 
@@ -359,12 +364,17 @@ const calcPnlPerToken = (token, rankSize) => {
             }
             if(buyTrades && buyTrades.length > 0) {
                 loss = buyTrades[0].solAmount
-                startTime = buyTrades[0].startTime
-                if(endTime == 0) endTime = buyTrades[0].endTime
+                startTime = Math.min(startTime, buyTrades[0].startTime)
+                endTime = Math.max(endTime, buyTrades[0].endTime)
             }
             let pnlPercent = 0
+            if(filterZero && loss == 0) continue
             if(loss != 0) pnlPercent = Math.floor(100 * profit / loss)
-            let holdingTime = Math.floor((endTime - startTime) / 60)
+            if(startTime == 0) {
+                startTime = endTime
+                endTime = Date.now() / 1000
+            }
+            let holdingTime = Math.ceil((endTime - startTime) / 60)
             
             wallets.push({
                 wallet: wallet._id, 
@@ -374,6 +384,8 @@ const calcPnlPerToken = (token, rankSize) => {
                 cost: loss,
                 pnl: profit,
                 pnlPercent: pnlPercent})
+            
+            if(wallets.length >= rankSize) break
             ranking++
         }
         
@@ -381,7 +393,7 @@ const calcPnlPerToken = (token, rankSize) => {
     })
 }
 
-const calcTopTrader = (wallet, rankSize) => {
+const calcTopTrader = (wallet, rankSize, filterZero) => {
     return new Promise(async (resolve, reject) => {
 
         let pipeline = [
@@ -399,7 +411,7 @@ const calcTopTrader = (wallet, rankSize) => {
             }
         ]
 
-        let topTokens = await Transaction.aggregate(pipeline).limit(rankSize).exec()
+        let topTokens = await Transaction.aggregate(pipeline).limit(2 * rankSize).exec()
         let tokens = []
         let ranking = 1
 
@@ -426,7 +438,7 @@ const calcTopTrader = (wallet, rankSize) => {
         
         for(let i = 0; i < topTokens.length; i++) {            
             let token = topTokens[i]            
-            let trades = pnls.filter(item => item._id.token == token._id)            
+            let trades = pnls.filter(item => item._id.token == token._id)
             let buyTrades = trades.filter(trade => trade._id.side == 'buy')
             let sellTrades = trades.filter(trade => trade._id.side == 'sell')
             let profit = 0
@@ -440,12 +452,17 @@ const calcTopTrader = (wallet, rankSize) => {
             }
             if(buyTrades && buyTrades.length > 0) {
                 loss = buyTrades[0].solAmount
-                startTime = buyTrades[0].startTime
-                if(endTime == 0) endTime = buyTrades[0].endTime
+                startTime = Math.min(startTime, buyTrades[0].startTime)
+                endTime = Math.max(endTime, buyTrades[0].endTime)
             }
             let pnlPercent = 0
+            if(filterZero && loss == 0) continue
             if(loss != 0) pnlPercent = Math.floor(100 * profit / loss)
-            let holdingTime = Math.floor((endTime - startTime) / 60)
+            if(startTime == 0) {
+                startTime = endTime
+                endTime = Date.now() / 1000
+            }
+            let holdingTime = Math.ceil((endTime - startTime) / 60)
             
             tokens.push({
                 token: token._id,
@@ -456,6 +473,9 @@ const calcTopTrader = (wallet, rankSize) => {
                 cost: loss,
                 pnl: profit,
                 pnlPercent: pnlPercent})
+                
+            if(tokens.length >= rankSize) break
+
             ranking++
         }
         
@@ -464,7 +484,7 @@ const calcTopTrader = (wallet, rankSize) => {
 }
 
 
-const sortWallets = (rankSize) => {
+const sortWallets = (rankSize, filterZero, filterTokensAtleast) => {
     return new Promise(async (resolve, reject) => {
 
         let pipeline = [
@@ -472,7 +492,7 @@ const sortWallets = (rankSize) => {
             { $group: { _id:'$owner', total: { $sum: '$solAmount'}}},
             { $sort: { 'total': 1 } }
         ]
-        let topWallets = await Transaction.aggregate(pipeline, { allowDiskUse: true }).limit(rankSize).exec()
+        let topWallets = await Transaction.aggregate(pipeline, { allowDiskUse: true }).limit(2 * rankSize).exec()
         let wallets = []
         let ranking = 1
 
@@ -516,6 +536,7 @@ const sortWallets = (rankSize) => {
         for(let wallet of topWallets) {            
             let trades = profitsPerSymbol.filter(item => item._id.owner == wallet._id)
             let tradesPerSide = profitsPerSymbolAndSide.filter(item => item._id.owner == wallet._id)
+            if(trades.length < filterTokensAtleast) continue
             let buyTrades = tradesPerSide.filter(trade => trade._id.side == 'buy')
             let sellTrades = tradesPerSide.filter(trade => trade._id.side == 'sell')
             let totalTrades = trades.length
@@ -549,8 +570,12 @@ const sortWallets = (rankSize) => {
             if(buyTrades && buyTrades.length > 0) {
                 for(let k = 0; k < buyTrades.length; k++) buyAmount += buyTrades[k].total                
             }
+
+            if(filterZero && buyAmount == 0) continue
+
             let profit = sellAmount - buyAmount
-            let pnlRate = `${Math.round(100 * totalProfit / buyAmount)}%`
+            let pnlRate = buyAmount > 0 ? 
+                            `${Math.round(100 * totalProfit / buyAmount)}%` : 'Infinity'
 
             wallets.push({
                 wallet: wallet._id, 
@@ -567,6 +592,8 @@ const sortWallets = (rankSize) => {
                 winRate: winRate,
                 })
             ranking++
+
+            if(wallets.length >= rankSize) break
         }
         
         resolve(wallets)

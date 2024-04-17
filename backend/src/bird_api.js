@@ -45,6 +45,7 @@ let PriceProvider = {
         return 0
     },
     queryToken: (time) => {
+        // console.log('queryToken->time = ' + time)
         let candPrices = PriceProvider.token_prices.filter(item => item.unixTime == time)
         if(candPrices && candPrices.length > 0) return candPrices[0].value
         if(PriceProvider.token_prices.length > 0) return PriceProvider.token_prices[0].value
@@ -70,7 +71,7 @@ async function askPriceHistory(address, address_type, type, time_from, time_to) 
     else {
         PriceProvider.token_prices = prices
         if(prices && prices.length > 2) {
-            console.log('token_price = ' + prices[1].value)
+            //console.log('token_price = ' + prices[1].value)
         }
     }
 
@@ -176,6 +177,36 @@ async function getPairTrades(pair, offset, limit, tx_type)
         return []
     
     return response.data.data.items
+}
+
+async function askTotalSupply(address) {
+    let query = `https://public-api.birdeye.so/defi/token_creation_info?address=${address}`
+    let response = await axios.get(query, {
+        headers: {
+            'accept': 'application/json',
+            'x-chain': 'solana',
+            'X-API-KEY': process.env.BIRDEYE_API_KEY
+        }
+    })
+    let txHash = '***'    
+    if(response.data && response.data.data && response.data.data.txHash) txHash = response.data.data.txHash
+
+    query = "https://solana-mainnet.g.alchemy.com/v2/-g45vk_u9aGFtpqfFL5_qXXT5oZUMB2S"
+    response = await axios.post(query, {
+        'jsonrpc': '2.0',
+        'id': 1,
+        'method': 'getTransaction',
+        'params': [txHash]        
+    })
+
+    let totalSupply = 0
+    try {
+        totalSupply = response.data.result.meta.postTokenBalances[0].uiTokenAmount.uiAmount
+    } catch (error) {
+        
+    }
+    console.log('totalSupply = ' + totalSupply)    
+    return totalSupply
 }
 
 async function saveTokenTxnToDB(tx) {
@@ -369,6 +400,7 @@ module.exports = {
     fetchLiquidity,
     getTokenTrades,
     getPairTrades,
+    askTotalSupply,
     saveTokenTxnToDB,
     savePairTxnToDB
 }

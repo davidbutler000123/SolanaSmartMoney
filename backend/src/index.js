@@ -37,8 +37,10 @@ app.get('/api', (req, res) => {
   res.send('API ROOT ⚡️');
 });
 
-app.get('/api/calcMetrics', (req, res) => {  
-  txAanalyzer.calcMetrics(req.query.token, req.query.period)
+app.get('/api/calcMetrics', (req, res) => {
+  let period = parseInt(req.query.period)
+  if(period <= 0) period = 5
+  txAanalyzer.calcMetrics(req.query.token, period)
   .then(records => {
     res.send(records)
   })
@@ -65,7 +67,9 @@ app.get('/api/calcPnlPerToken', (req, res) => {
   let rankSize = parseInt(req.query.rankSize)
   if(rankSize <= 0) rankSize = 10
   if(rankSize > 100) rankSize = 100
-  txAanalyzer.calcPnlPerToken(req.query.token, rankSize)
+  let filterZero = parseInt(req.query.filterZero)
+  if(filterZero < 0) filterZero = 1
+  txAanalyzer.calcPnlPerToken(req.query.token, rankSize, filterZero)
   .then(records => {
     res.send(records)
   })
@@ -78,7 +82,9 @@ app.get('/api/calcTopTrader', (req, res) => {
   let rankSize = parseInt(req.query.rankSize)
   if(rankSize <= 0) rankSize = 10
   if(rankSize > 100) rankSize = 100
-  txAanalyzer.calcTopTrader(req.query.wallet, rankSize)
+  let filterZero = parseInt(req.query.filterZero)
+  if(filterZero < 0) filterZero = 1
+  txAanalyzer.calcTopTrader(req.query.wallet, rankSize, filterZero)
   .then(records => {
     res.send(records)
   })
@@ -91,7 +97,11 @@ app.get('/api/sortWallets', (req, res) => {
   let rankSize = parseInt(req.query.rankSize)
   if(rankSize <= 0) rankSize = 10
   if(rankSize > 100) rankSize = 100
-  txAanalyzer.sortWallets(rankSize)
+  let filterZero = parseInt(req.query.filterZero)
+  if(filterZero < 0) filterZero = 1
+  let filterTokenAtleast = parseInt(req.query.filterTokenAtleast)
+  if(filterTokenAtleast < 1) filterZero = 2
+  txAanalyzer.sortWallets(rankSize, filterZero, filterTokenAtleast)
   .then(records => {
     res.send(records)
   })
