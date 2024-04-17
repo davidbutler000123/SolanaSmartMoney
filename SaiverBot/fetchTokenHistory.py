@@ -13,10 +13,11 @@ def main():
 
     time_from, time_to =  f.get_time_range(d.INTERVAL_TIME_TYPE)
 
-    TOKEN_ADDR  = d.TOKEN_ADDR
-    period      = d.PERIOD
+    tokenAddress    = d.TOKEN_ADDR
+    period          = d.PERIOD
+    fetchUntil      = d.FETCH_UNTIL
     
-    cur_percent = f.fetch_token_history(TOKEN_ADDR)
+    cur_percent = f.fetch_token_history(tokenAddress, fetchUntil)
     prev_percent = 0
 
     for n in track(range(10000), description="Processing..."):        
@@ -25,7 +26,7 @@ def main():
         
         while True and prev_percent > cur_percent :
 
-            cur_percent = f.fetch_token_history(TOKEN_ADDR)
+            cur_percent = f.fetch_token_history(tokenAddress, fetchUntil)
             # print(cur_percent)
 
             if cur_percent - prev_percent > 0 :            

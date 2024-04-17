@@ -38,13 +38,15 @@ def get_time_range(interval):
 
 def out_xls_file(df: pd.DataFrame, sheet_name: str, mode: str):
     
-    with pd.ExcelWriter(d.EXPORT_EXCEL_PATH, mode=mode, engine="openpyxl") as writer:
+    file_path = f'{d.EXPORT_EXCEL_PATH}{sheet_name}.xlsx'
+
+    with pd.ExcelWriter(file_path, mode=mode, engine="openpyxl") as writer:
         df.to_excel(writer, sheet_name=sheet_name, index=False)
 
-    print(f"{c.GREEN}Exporting Excel file successful!{c.RESET}")
+    print(f"{c.GREEN}Exporting [{sheet_name}] Excel file successful!{c.RESET}")
 
 
-def save_calc_metrics(address, period, time_from, time_to):
+def save_calc_metrics(address, period):
 
     url = f"{d.SERVER_URL}calcMetrics?token={address}&period={period}"
     
@@ -67,6 +69,36 @@ def save_calc_metrics(address, period, time_from, time_to):
                 items = json_response.get('records', [])
                 print(len(items))
 
+                # "bin": 1,
+                # "timestamp": "3/14/2024 4:00:00 PM",
+                # "renounced": 1,
+                # "burned": 0,
+                # "fdv": 10745635.739374345,
+                # "mcUsd": 5372817.868129834,
+                # "mcSol": 31899.114295883533,
+                # "priceUsd": 0.00015573385034733518,
+                # "priceSol": 9.246120032162648e-7,
+                # "initLiqSol": 10132,
+                # "initLiqUsd": 1706548.6563342111,
+                # "liqSol": 10200.244576823998,
+                # "liqUsd": 1718043.1974792064,
+                # "totalVolume": 12023.144768561879,
+                # "buyVolume": 282.3350135694278,
+                # "sellVolume": 11740.809754992451,
+                # "totalTx": 120,
+                # "buyTx": 16,
+                # "sellTx": 103,
+                # "totalHolders": 75,
+                # "deltaFdv": 0,
+                # "deltaLiq": 10200.244576823998,
+                # "deltaVolume": 3775804.9745183666,
+                # "deltaBuyVolume": 1236857.3833246625,
+                # "deltaSellVolume": 2538947.5911937035,
+                # "deltaAllTx": 4742,
+                # "deltaBuyTx": 1197,
+                # "deltaSellTx": 3544,
+                # "deltaHolders": 1613
+
                 # items = json_response.get('data', {}).get('items', [])  # Safely access the 'items' list
 
                 processed_data = [{
@@ -75,10 +107,14 @@ def save_calc_metrics(address, period, time_from, time_to):
                     "FDV": item['fdv'],
                     "Renounced": item['renounced'],
                     "Burned": item['burned'],
-                    "Market cap": item['mc'],
-                    "Price": item['price'],
-                    "Initial Liquidity": item['initLiq'],
-                    "Liquidity SOL": item['liqSol'],
+                    "Market cap(SOL)": item['mcSol'],
+                    "Market cap(USD)": item['mcUsd'],
+                    "Price(SOL)": item['priceSol'],
+                    "Price(USD)": item['priceUsd'],
+                    "Initial Liquidity(SOL)": item['initLiqSol'],
+                    "Initial Liquidity(USD)": item['initLiqUsd'],
+                    "Liquidity(SOL)": item['liqSol'],
+                    "Liquidity(USD)": item['liqUsd'],
                     "Total Volume": item['totalVolume'],
                     "Total Buy Volume": item['buyVolume'],
                     "Total Sell Volume": item['sellVolume'],
@@ -126,9 +162,9 @@ def save_calc_metrics(address, period, time_from, time_to):
 
         time.sleep(2)
 
-def save_calc_PnlPerToken(address, ranksize, token_symbol):
+def save_calc_PnlPerToken(address, ranksize, filterZero, sortMode):
 
-    url = f"{d.SERVER_URL}calcPnlPerToken?token={address}&rankSize={ranksize}&filterZero={d.FILTER_ZERO_COST}"
+    url = f"{d.SERVER_URL}calcPnlPerToken?token={address}&rankSize={ranksize}&filterZero={filterZero}&sortMode={sortMode}"
     
     count = 0
     while True:
@@ -162,7 +198,7 @@ def save_calc_PnlPerToken(address, ranksize, token_symbol):
                     "Holding Time(mins)": item['holdingTime'],
                     "Cost(SOL)": item['cost'],
                     "Realized PNL(SOL)": item['pnl'],
-                    "PNL": item['pnlPercent']
+                    "PNL(%)": item['pnlPercent']
                     } for item in items]
 
                 # Assuming 'processed_data' is already defined and available
@@ -178,7 +214,7 @@ def save_calc_PnlPerToken(address, ranksize, token_symbol):
 
                 # out_xls_file(df, token_symbol, "w")
 
-                sheet_name = f'Token Analysis({token_symbol})'
+                sheet_name = f'Token Analysis'
                 return df, sheet_name
 
             else:
@@ -196,9 +232,9 @@ def save_calc_PnlPerToken(address, ranksize, token_symbol):
 
         time.sleep(2)
 
-def save_calc_TopTrader(address, ranksize):
+def save_calc_TopTrader(address, ranksize, filterMode, sortMode):
 
-    url = f"{d.SERVER_URL}calcTopTrader?wallet={address}&rankSize={ranksize}&filterZero={d.FILTER_ZERO_COST}"
+    url = f"{d.SERVER_URL}calcTopTrader?wallet={address}&rankSize={ranksize}&filterZero={filterMode}&sortMode={sortMode}"
     
     count = 0
     while True:
@@ -269,9 +305,9 @@ def save_calc_TopTrader(address, ranksize):
 
         time.sleep(2)
 
-def save_sort_wallets(ranksize):
+def save_sort_wallets(ranksize, filterZero, filterAtLeast, sortMode):
 
-    url = f"{d.SERVER_URL}sortWallets?rankSize={ranksize}&filterZero={d.FILTER_ZERO_COST}&filterTokenAtleast={d.TOKEN_ATLEAST_TRADED}"
+    url = f"{d.SERVER_URL}sortWallets?rankSize={ranksize}&filterZero={filterZero}&filterTokenAtleast={filterAtLeast}&sortMode={sortMode}"
     
     count = 0
     while True:
@@ -337,7 +373,7 @@ def save_sort_wallets(ranksize):
 
                 sheet_name = f'Token Leaderboard'
 
-                return df, sheet_name, wallet
+                return df, sheet_name
 
             else:
                 print(f"{c.RED}[save_sort_wallets] Failed to fetch data. Status code: {response.status_code}{c.RESET}")
@@ -348,15 +384,15 @@ def save_sort_wallets(ranksize):
         
         if count > 3:
             print(f"{c.RED}[save_sort_wallets] count err{c.RESET}")            
-            return pd.DataFrame(), "failed", None
+            return pd.DataFrame(), "failed"
         
         count += 1
 
         time.sleep(2)
 
-def fetch_token_history(address):
+def fetch_token_history(address, fetchUntil):
     
-    url = f"{d.SERVER_URL}fetchTokenHistory?token={address}"
+    url = f"{d.SERVER_URL}fetchTokenHistory?token={address}&until={fetchUntil}"
 
     while True:
         try:
@@ -366,7 +402,7 @@ def fetch_token_history(address):
                 state = json_response.get('state')
 
                 if state == 0: # 
-                    df, token_symbol = save_calc_metrics(address, 5, 0, 0)
+                    df, token_symbol = save_calc_metrics(address, d.PERIOD)
                     out_xls_file(df, f"{token_symbol}", "w")
                     percent = 10000
                 else:

@@ -1,3 +1,3 @@
-python ./tokenMetrics.py
+python ./token_metrics.py
 
 pause
