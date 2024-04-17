@@ -161,17 +161,18 @@ const calcMetrics = (token, period) => {
         let volRecords = await aggregateVolume(token, period)
         let liqRecords = await aggregateLiquidity(token, period)
 
-        let initLiq = 0
+        let initLiqSol = 0, initLiqUsd = 0        
         let currentSupply = 0
         if(initAddTxn && initAddTxn.solAmount) {
             console.log('init sol = ' + initAddTxn.solAmount)
-            initLiq = initAddTxn.solAmount
+            initLiqSol = initAddTxn.solAmount
         }
 
         let pubTime = 0, lastTime = 0
         if(volRecords.length > 0) {
             pubTime = volRecords[0]._id.tm
             lastTime = volRecords[volRecords.length - 1]._id.tm
+            initLiqUsd = initLiqSol * PriceProvider.querySol(pubTime * 60 * period)
         }
         
         let results = []        
@@ -181,16 +182,21 @@ const calcMetrics = (token, period) => {
                 currentSupply += liqBins[0].baseAmount
             }
             let tokenPrice = PriceProvider.queryToken((pubTime + t) * 60 * period)
+            let solPrice = PriceProvider.querySol((pubTime + t) * 60 * period)
             results.push({
                 bin: t + 1,
                 timestamp: 0,
                 renounced: 0,
                 burned: 0,
                 fdv: totalSupply * tokenPrice,
-                mc: currentSupply * tokenPrice,
-                price: tokenPrice,                
-                initLiq: initLiq,
+                mcUsd: currentSupply * tokenPrice,
+                mcSol: currentSupply * tokenPrice / solPrice,
+                priceUsd: tokenPrice,
+                priceSol: tokenPrice / solPrice,
+                initLiqSol: initLiqSol,
+                initLiqUsd: initLiqUsd,
                 liqSol: 0,
+                liqUsd: 0,
                 totalVolume: 0,
                 buyVolume: 0,
                 sellVolume: 0,
@@ -226,6 +232,7 @@ const calcMetrics = (token, period) => {
             let bin = item._id.tm - pubTime
             if(bin >= results.length) continue
             let timestamp = fmtTimestr(item._id.tm * period * 60000)
+            let solPrice = PriceProvider.querySol(item._id.tm * 60 * period)
             let volAdd = 0, buyAdd = 0, sellAdd = 0;
             if(item._id.side == "buy") {
                 volAdd = 1;
@@ -248,6 +255,7 @@ const calcMetrics = (token, period) => {
             totSol += item.solAmount
             results[bin].timestamp = timestamp
             results[bin].liqSol = totSol
+            results[bin].liqUsd = totSol * solPrice
             results[bin].totalVolume = totVol
             // results[bin].buyVolume -= buyAdd * item.total
             // results[bin].sellVolume += sellAdd * item.total
