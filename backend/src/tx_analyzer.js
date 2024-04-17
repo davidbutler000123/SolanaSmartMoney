@@ -154,7 +154,6 @@ const calcMetrics = (token, period) => {
     return new Promise(async (resolve, reject) => {
         await askPriceFromDexScreen(token, resolve)
         if(!poolFromDexScreen) return
-        //await deleteDuplicates()
         let totalSupply = await askTotalSupply(token)
 
         let initAddTxn = await HistoryTxn.find({token:token, type:'liquidity', side:'add'}).sort({blockUnixTime:1}).limit(2)
