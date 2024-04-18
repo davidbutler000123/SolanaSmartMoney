@@ -1,6 +1,6 @@
-import dontshare as d
-import constants as c
-import functions as f
+import config as d
+from sub import constants as c
+from sub import functions as f
 
 def main():
     

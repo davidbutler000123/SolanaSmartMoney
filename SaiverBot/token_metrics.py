@@ -1,27 +1,63 @@
-import dontshare as d
-import constants as c
-import functions as f
+
+import config as d  # Assuming this module contains your API key
+from sub import constants as c
+from sub import functions as f
+import time 
+from rich.progress import track
+import enlighten
 
 def main():
     
-    print(f"{c.GREEN}****************** Token Metrics Starting... ******************{c.RESET}")
+    print(f"{c.GREEN}****************** Main Starting... ******************{c.RESET}")
 
-    # time_from, time_to =  f.get_time_range(d.INTERVAL_TIME_TYPE)
+    time_from, time_to =  f.get_time_range(d.INTERVAL_TIME_TYPE)
 
     tokenAddress    = d.TOKEN_ADDR
     period          = d.PERIOD
+    fetchUntil      = d.FETCH_UNTIL
+    
+    cur_percent = f.fetch_token_history(tokenAddress, fetchUntil)
+    prev_percent = 0
 
-    # Token
-    if tokenAddress != '':
+    for n in track(range(10000), description="Processing..."):        
 
-        df, sheet_name = f.save_calc_metrics(tokenAddress, period)
+        prev_percent = n
+        
+        while True and prev_percent > cur_percent :
 
-        if sheet_name != "failed":
-            f.out_xls_file(df, sheet_name, "w")
-    else:
-        print(f"{c.RED}****************** Please enter token address in dontshare.py ******************{c.RESET}")    
+            cur_percent = f.fetch_token_history(tokenAddress, fetchUntil)
+            # print(cur_percent)
 
-    print(f"{c.GREEN}****************** Token Metrics End ******************{c.RESET}")
+            if cur_percent - prev_percent > 0 :            
+                break
 
+            time.sleep(5)
+
+        # time.sleep(0.001)
+
+    # manager = enlighten.get_manager()
+    # pbar = manager.counter(total=10000, desc='Progress...')
+
+    # for i in range(1, 10001):
+
+    #     pbar.update()
+    #     prev_percent = i
+        
+    #     while True and prev_percent > cur_percent :
+
+    #         cur_percent = f.fetch_token_history(TOKEN_ADDR)
+    #         # print(cur_percent)
+
+    #         if cur_percent - prev_percent > 0 :            
+    #             break
+
+    #         time.sleep(5)
+
+    #     # print(i)
+    #     # time.sleep(0.1)
+
+    print(f"{c.GREEN}****************** Main End... ******************{c.RESET}")
+
+    
 if __name__ == "__main__":
     main()

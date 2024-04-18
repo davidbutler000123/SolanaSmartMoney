@@ -1,6 +1,6 @@
-import dontshare as d  # Assuming this module contains your API key
-import constants as c
-import functions as f
+import config as d  # Assuming this module contains your API key
+from sub import constants as c
+from sub import functions as f
 
 def main():
     

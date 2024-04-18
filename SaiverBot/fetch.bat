@@ -1,3 +1,0 @@
-python ./fetchTokenHistory.py
-
-pause
