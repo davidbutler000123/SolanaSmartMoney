@@ -196,12 +196,18 @@ async function askTotalSupply(address) {
         'jsonrpc': '2.0',
         'id': 1,
         'method': 'getTransaction',
-        'params': [txHash]        
+        'params': [txHash, {encoding: "json", maxSupportedTransactionVersion:0}]
     })
+
+    // console.log(response.data.result.meta.postTokenBalances[0])
+    // console.log(response.data.result.meta.postTokenBalances[1])
 
     let totalSupply = 0
     try {
-        totalSupply = response.data.result.meta.postTokenBalances[0].uiTokenAmount.uiAmount
+        response.data.result.meta.postTokenBalances.forEach(element => {
+            totalSupply += element.uiTokenAmount.uiAmount
+        });
+        //totalSupply = response.data.result.meta.postTokenBalances[0].uiTokenAmount.uiAmount
     } catch (error) {
         
     }
