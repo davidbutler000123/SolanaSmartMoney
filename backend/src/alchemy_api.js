@@ -1,8 +1,6 @@
 const axios = require('axios');
-const splToken = require('@solana/spl-token')
 const { HistoryTxn, TokenAudit } = require('./models')
 const { tokenCreationInfo } = require('./bird_api');
-const { PublicKey } = require('@solana/web3.js');
 
 const RAYDIUM_AUTHORITY_V4 = '5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1'
 const TOKEN_PROGRAM_ADDR = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'

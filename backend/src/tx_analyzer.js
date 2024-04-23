@@ -15,7 +15,6 @@ const {
 } = require('./alchemy_api')
 const axios = require('axios');
 const { logTimeString, fmtTimestr } = require('./utils/utils');
-const { TopTokenSellBuyJupRequest } = require('@hellomoon/api');
 
 let poolFromDexScreen = null
 
