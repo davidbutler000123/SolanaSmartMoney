@@ -15,6 +15,7 @@ import { guard, newToken } from './utils/auth';
 require('./subscribe_txs_token')
 require('./trade_indexer')
 const txAanalyzer = require('./tx_analyzer')
+const alchemyApi = require('./alchemy_api')
 
 const app = express();
 
@@ -144,6 +145,15 @@ app.get('/api/calcHolders', (req, res) => {
   .catch(err => {
     res.send([])
   })
+})
+
+app.get('/api/getLpburn', (req, res) => {  
+  alchemyApi.getLpburn(req.query.token)
+  res.send(
+    {
+      result: 0
+    }
+  )  
 })
 //* END ROUTES *//
 

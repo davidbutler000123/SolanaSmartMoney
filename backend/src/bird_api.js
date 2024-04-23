@@ -2,7 +2,6 @@ const axios = require('axios');
 const { Transaction, HistoryTxn } = require('./models')
 const { logTimeString } = require('./utils/utils')
 
-let token_price = 100
 let pageLimit = 10
 
 let SubscriberTxCounter = {
@@ -179,7 +178,7 @@ async function getPairTrades(pair, offset, limit, tx_type)
     return response.data.data.items
 }
 
-async function askTotalSupply(address) {
+async function tokenCreationInfo(address) {
     let query = `https://public-api.birdeye.so/defi/token_creation_info?address=${address}`
     let response = await axios.get(query, {
         headers: {
@@ -188,31 +187,16 @@ async function askTotalSupply(address) {
             'X-API-KEY': process.env.BIRDEYE_API_KEY
         }
     })
-    let txHash = '***'    
-    if(response.data && response.data.data && response.data.data.txHash) txHash = response.data.data.txHash
-
-    query = "https://solana-mainnet.g.alchemy.com/v2/-g45vk_u9aGFtpqfFL5_qXXT5oZUMB2S"
-    response = await axios.post(query, {
-        'jsonrpc': '2.0',
-        'id': 1,
-        'method': 'getTransaction',
-        'params': [txHash, {encoding: "json", maxSupportedTransactionVersion:0}]
-    })
-
-    // console.log(response.data.result.meta.postTokenBalances[0])
-    // console.log(response.data.result.meta.postTokenBalances[1])
-
-    let totalSupply = 0
-    try {
-        response.data.result.meta.postTokenBalances.forEach(element => {
-            totalSupply += element.uiTokenAmount.uiAmount
-        });
-        //totalSupply = response.data.result.meta.postTokenBalances[0].uiTokenAmount.uiAmount
-    } catch (error) {
-        
+    let txHash = ''
+    let owner = ''
+    if(response.data && response.data.data && response.data.data.txHash) {
+        txHash = response.data.data.txHash
+        owner = response.data.data.owner
     }
-    console.log('totalSupply = ' + totalSupply)    
-    return totalSupply
+    return {
+        txHash,
+        owner
+    }
 }
 
 async function saveTokenTxnToDB(tx) {
@@ -406,7 +390,7 @@ module.exports = {
     fetchLiquidity,
     getTokenTrades,
     getPairTrades,
-    askTotalSupply,
+    tokenCreationInfo,
     saveTokenTxnToDB,
     savePairTxnToDB
 }

@@ -1,18 +1,28 @@
-const { Transaction, HistoryTxn } = require('./models')
+const { Transaction, HistoryTxn, TokenAudit } = require('./models')
 const { deleteDuplicates, deleteHistoryDuplicates } = require('./trade_indexer')
 const { 
     getTokenTrades, 
-    getPairTrades, 
-    askTotalSupply,
+    getPairTrades,
     savePairTxnToDB,
     SubscriberTxCounter, 
     PriceProvider,
-    askPriceHistory} = require('./bird_api')
+    askPriceHistory,
+    tokenCreationInfo} = require('./bird_api')
+const {
+    askTotalSupply,
+    checkRenouncedAndLpburned,
+    CheckTokenAuditThread
+} = require('./alchemy_api')
 const axios = require('axios');
 const { logTimeString, fmtTimestr } = require('./utils/utils');
 const { TopTokenSellBuyJupRequest } = require('@hellomoon/api');
 
 let poolFromDexScreen = null
+
+let fetchedLastTxn = {
+    txHash: '',
+    blockUnixTime: 0
+}
 
 async function askPriceFromDexScreen(token, resolve) {
     let query = `https://api.dexscreener.io/latest/dex/tokens/${token}`
@@ -154,12 +164,17 @@ const calcMetrics = (token, period) => {
     return new Promise(async (resolve, reject) => {
         await askPriceFromDexScreen(token, resolve)
         if(!poolFromDexScreen) return
-        let totalSupply = await askTotalSupply(token)
+        let { txHash, owner } = await tokenCreationInfo(token)
+        let totalSupply = await askTotalSupply(txHash)
 
         let initAddTxn = await HistoryTxn.find({token:token, type:'liquidity', side:'add'}).sort({blockUnixTime:1}).limit(2)
         if(initAddTxn.length > 0) initAddTxn = initAddTxn[0]
         let volRecords = await aggregateVolume(token, period)
         let liqRecords = await aggregateLiquidity(token, period)
+        let tokenAuditRecord = await TokenAudit.find({token:token})
+        if(tokenAuditRecord.length > 0) {
+            tokenAuditRecord = tokenAuditRecord[0]
+        }
 
         let initLiqSol = 0, initLiqUsd = 0        
         let currentSupply = 0
@@ -169,6 +184,7 @@ const calcMetrics = (token, period) => {
         }
 
         let pubTime = 0, lastTime = 0
+        let launchTime = Math.floor(poolFromDexScreen.pairCreatedAt / (3600 * 1000 * period))
         if(volRecords.length > 0) {
             pubTime = volRecords[0]._id.tm
             lastTime = volRecords[volRecords.length - 1]._id.tm
@@ -217,8 +233,19 @@ const calcMetrics = (token, period) => {
                 deltaHolders: 0
             })
         }
-        let renounced = 0
-        let burned = 0
+
+        if(tokenAuditRecord) {
+            console.log(`pub: ${pubTime*60*period}, renounce: ${tokenAuditRecord.renouncedTime}, burned: ${tokenAuditRecord.lpburnedTime}`)
+            if(tokenAuditRecord.renouncedTime > 0) {
+                let idx = Math.floor(tokenAuditRecord.renouncedTime / (60 * period) - pubTime)
+                if(idx >= 0 && idx < results.length) results[idx].renounced = 1
+            }
+            if(tokenAuditRecord.lpburnedTime > 0) {
+                let idx = Math.floor(tokenAuditRecord.lpburnedTime / (60 * period) - pubTime)
+                if(idx >= 0 && idx < results.length) results[idx].burned = 1
+            }
+        }
+
         let totVol = 0
         let totBuyVol = 0
         let totSellVol = 0
@@ -244,12 +271,6 @@ const calcMetrics = (token, period) => {
                 volAdd = -1;
                 buyAdd = 1;
             }
-            if(item._id.side == 'add') {
-                renounced = 1
-            }
-            if(item._id.side == 'remove') {
-                burned = 1
-            }
             totVol += volAdd * item.total
             totBuyVol -= buyAdd * item.total
             totSellVol += sellAdd * item.total
@@ -271,15 +292,11 @@ const calcMetrics = (token, period) => {
             results[bin].sellTx = totSellTx
             if(prevBin != bin) {
                 if(bin >= 0 && bin < results.length) {
-                    results[prevBin].renounced = renounced
-                    results[prevBin].burned = burned
                     results[prevBin].deltaLiq = binSol
 
                     let totalHolders = Object.values(wallets).filter((w) => w < -1).length
                     results[prevBin].totalHolders = totalHolders
 
-                    renounced = 0
-                    burned = 0
                     binSol = 0
                 }
             }
@@ -760,6 +777,7 @@ async function fetchPairTradeHistoryForSwap(pair, until) {
             break
         } 
         records.forEach(tx => {
+            if(fetchedLastTxn.blockUnixTime < tx.blockUnixTime) fetchedLastTxn = tx
             savePairTxnToDB(tx, 'swap')
         })
         if(records.length < 50) break
@@ -833,16 +851,17 @@ async function getFetchPercent(token, pair) {
     if(records.length > 1) {
         let nDuration = targetTime - pubTime
         let nFetched = targetTime - records[0].blockUnixTime
-        percent = (100 * nFetched / nDuration).toFixed(2)
+        percent = (90 * nFetched / nDuration)
         
         console.log(`${fmtTimestr(records[0].blockUnixTime*1000)} -> ${fmtTimestr(records[records.length-1].blockUnixTime*1000)} : percent=${percent}%`)
-        // console.log(records.map(item=>({
-        //     blockUnixTime: fmtTimestr(item.blockUnixTime * 1000),
-        //     side: item.side,
-        //     solAmount: item.solAmount
-        // })).slice(0, 3))
     }
     
+    if(Math.round(percent) == 90) {
+        let checkAuditPercent = CheckTokenAuditThread.getPercent()
+        console.log('checkAuditPercent = ' + checkAuditPercent)
+        percent += checkAuditPercent
+    }
+    percent = percent.toFixed(2)
     return percent
 }
 
@@ -861,10 +880,8 @@ async function fetchTokenTradesHistory(token, until)
         let pair = poolFromDexScreen.pairAddress
         if(!pair) return
 
-        // console.log(poolFromDexScreen)
-        //checkMintAuthDisabled()
-
         let fPercent = await getFetchPercent(token, pair)
+        console.log('fPercent = ' + fPercent)
         let nState = 0
         if(fPercent == 0) {
             nState = 3            
@@ -892,6 +909,7 @@ async function fetchTokenTradesHistory(token, until)
         await fetchPairTradeHistoryForSwap(pair, until)
         await fetchPairTradeHistoryForLiquidity(pair, until)
         await deleteHistoryDuplicates()
+        await checkRenouncedAndLpburned(token, fetchedLastTxn.txHash)
         SubscriberTxCounter.fetch_active = false
     })
 }
@@ -906,5 +924,5 @@ module.exports = {
     calcHolders,
     askPriceFromDexScreen,
     fetchTokenTradesHistory,
-    getFetchPercent
+    getFetchPercent    
 }
