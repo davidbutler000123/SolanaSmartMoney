@@ -81,6 +81,7 @@ async function checkRenouncedAndLpburned(address, beforeTxnHash) {
         }
     }
 
+    CheckTokenAuditThread.progress = CheckTokenAuditThread.task_count
     let lpburnedTime = await getLpburn(address)
 
     const t = new TokenAudit({
