@@ -868,7 +868,8 @@ async function getFetchPercent(token, pair) {
   /*  0 - completed, 
       1 - insufficient, active, 
       2 - insufficient, inactive, 
-      3 - not initiated
+      3 - insufficient, but swap and liquidity is fetched
+      4 - not initiated
   */
 async function fetchTokenTradesHistory(token, until)
 {
@@ -883,7 +884,10 @@ async function fetchTokenTradesHistory(token, until)
         console.log('fPercent = ' + fPercent)
         let nState = 0
         if(fPercent == 0) {
-            nState = 3            
+            nState = 4            
+        }
+        else if(fPercent >= 90 && fPercent < 100) {
+            nState = 3
         }
         else if(fPercent == 100) {
             nState = 0
@@ -905,9 +909,11 @@ async function fetchTokenTradesHistory(token, until)
         if(SubscriberTxCounter.fetch_active || nState == 0 || nState == 1) return
 
         SubscriberTxCounter.fetch_active = true
-        await fetchPairTradeHistoryForSwap(pair, until)
-        await fetchPairTradeHistoryForLiquidity(pair, until)
-        await deleteHistoryDuplicates()
+        if(nState != 3) {
+            await fetchPairTradeHistoryForSwap(pair, until)
+            await fetchPairTradeHistoryForLiquidity(pair, until)
+            await deleteHistoryDuplicates()
+        }
         await checkRenouncedAndLpburned(token, fetchedLastTxn.txHash)
         SubscriberTxCounter.fetch_active = false
     })

@@ -161,9 +161,9 @@ async function getLpburn(token)
             let lpMintInst = innerInstructions[k].instructions[innerInstructions[k].instructions.length - 1]
             if(lpMintInst.accounts.length != 3) continue
             let prgId = accountKeys[lpMintInst.programIdIndex]
-            if(prgId.toString() != TOKEN_PROGRAM_ADDR) continue
             let authCount = accountKeys[lpMintInst.accounts[2]]
-            if(authCount.toString() != RAYDIUM_AUTHORITY_V4) continue
+            if(!prgId || prgId.toString() != TOKEN_PROGRAM_ADDR) continue
+            if(!authCount || authCount.toString() != RAYDIUM_AUTHORITY_V4) continue
             console.log('lpMintInst: '); 
             console.log(lpMintInst)
             let mintAccount = accountKeys[lpMintInst.accounts[1]]
