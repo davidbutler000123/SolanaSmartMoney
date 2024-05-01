@@ -10,8 +10,6 @@ def main():
     
     print(f"{c.GREEN}****************** Main Starting... ******************{c.RESET}")
 
-    time_from, time_to =  f.get_time_range(d.INTERVAL_TIME_TYPE)
-
     tokenAddress    = d.TOKEN_ADDR
     period          = d.PERIOD
     fetchUntil      = d.FETCH_UNTIL
