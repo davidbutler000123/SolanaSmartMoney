@@ -81,28 +81,35 @@ async function checkRenouncedAndLpburned(address, beforeTxnHash) {
         }
     }
 
-    CheckTokenAuditThread.progress = CheckTokenAuditThread.task_count
-    let lpburnedTime = await getLpburn(address)
+    let mintRecord = await TokenAudit.find({token: address, type:'renounced', time:renouncedTime})
+    if(!mintRecord || mintRecord.length == 0) {
+        const t = new TokenAudit({
+            token: address,
+            type: 'renounced',
+            time: renouncedTime
+        })
+        await t.save()
+    }
 
-    const t = new TokenAudit({
-        token: address,
-        renouncedTime: renouncedTime,
-        lpburnedTime: lpburnedTime
-    })
-    
-    let existingRecord = await TokenAudit.findOne({token: address})
-    if(!existingRecord) {
-        t.save()
-    }
-    else {
-        existingRecord.renouncedTime = renouncedTime
-        existingRecord.lpburnedTime = lpburnedTime
-        let updateResult = await existingRecord.save()        
-    }
+    CheckTokenAuditThread.progress = CheckTokenAuditThread.task_count
+    let lpburnedTimes = await getLpburn(address)
+    for(let i = 0; i < lpburnedTimes.length; i++) {
+        let time = lpburnedTimes[i]        
+        
+        let lpRecord = await TokenAudit.find({token: address, type:'lpburned', time:time})
+        if(!lpRecord || lpRecord.length == 0) {
+            const t = new TokenAudit({
+                token: address,
+                type: 'lpburned',
+                time: time
+            })
+            await t.save()
+        }
+    }    
 
     return {
         renounced: renouncedTime,
-        lpburned: lpburnedTime
+        lpburned: lpburnedTimes
     }
 }
 
@@ -175,7 +182,8 @@ async function getLpburn(token)
     console.log('lpMintAccounts = '); console.log(lpMintAccounts)
     if(lpMintAccounts.length == 0) return 0
 
-    let lpBurnTime = 0
+    // let lpBurnTime = 0
+    let lbBurnTimes = []
     for(let i = 0; i < lpMintAccounts.length; i++) {
         let txSigns = await fetchTxSignsForAddress(lpMintAccounts[i])
         if(!txSigns.data.result || txSigns.data.result.length == 0) continue
@@ -201,13 +209,14 @@ async function getLpburn(token)
             if(burnTxns && burnTxns.length > 0) {
                 lpOneIsBurn = true
                 let blockTime = txn_response.data.result.blockTime
-                if(lpBurnTime < blockTime) lpBurnTime = blockTime
+                lbBurnTimes.push(blockTime)
+                // if(lpBurnTime < blockTime) lpBurnTime = blockTime
                 break
             }
         }
-        if(!lpOneIsBurn) return 0
+        // if(!lpOneIsBurn) return 0
     }
-    return lpBurnTime
+    return lbBurnTimes
 }
 
 module.exports = {

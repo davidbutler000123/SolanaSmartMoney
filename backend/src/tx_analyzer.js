@@ -169,11 +169,9 @@ const calcMetrics = (token, period) => {
         let initAddTxn = await HistoryTxn.find({token:token, type:'liquidity', side:'add'}).sort({blockUnixTime:1}).limit(2)
         if(initAddTxn.length > 0) initAddTxn = initAddTxn[0]
         let volRecords = await aggregateVolume(token, period)
+        console.log('volRecords.length = ' + volRecords.length)
         let liqRecords = await aggregateLiquidity(token, period)
-        let tokenAuditRecord = await TokenAudit.find({token:token})
-        if(tokenAuditRecord.length > 0) {
-            tokenAuditRecord = tokenAuditRecord[0]
-        }
+        let tokenAuditRecords = await TokenAudit.find({token:token})
 
         let initLiqSol = 0, initLiqUsd = 0        
         let currentSupply = 0
@@ -205,7 +203,8 @@ const calcMetrics = (token, period) => {
                 timestamp: timestamp,
                 renounced: 0,
                 burned: 0,
-                fdv: totalSupply * tokenPrice,
+                fdvUsd: totalSupply * tokenPrice,
+                fdvSol: totalSupply * tokenPrice / solPrice,
                 mcUsd: currentSupply * tokenPrice,
                 mcSol: currentSupply * tokenPrice / solPrice,
                 priceUsd: tokenPrice,
@@ -221,7 +220,8 @@ const calcMetrics = (token, period) => {
                 buyTx: 0,
                 sellTx: 0,
                 totalHolders: 0,
-                deltaFdv: 0,
+                deltaFdvUsd: 0,
+                deltaFdvSol: 0,
                 deltaLiq: 0,
                 deltaVolume: 0,
                 deltaBuyVolume: 0,
@@ -233,16 +233,19 @@ const calcMetrics = (token, period) => {
             })
         }
 
-        if(tokenAuditRecord) {
-            console.log(`pub: ${pubTime*60*period}, renounce: ${tokenAuditRecord.renouncedTime}, burned: ${tokenAuditRecord.lpburnedTime}`)
-            if(tokenAuditRecord.renouncedTime > 0) {
-                let idx = Math.floor(tokenAuditRecord.renouncedTime / (60 * period) - pubTime)
-                if(idx >= 0 && idx < results.length) results[idx].renounced = 1
-            }
-            if(tokenAuditRecord.lpburnedTime > 0) {
-                let idx = Math.floor(tokenAuditRecord.lpburnedTime / (60 * period) - pubTime)
-                if(idx >= 0 && idx < results.length) results[idx].burned = 1
-            }
+        if(tokenAuditRecords) {
+            // console.log(`pub: ${pubTime*60*period}, renounce: ${tokenAuditRecords.renouncedTime}, burned: ${tokenAuditRecords.lpburnedTime}`)\
+            for(let i = 0; i < tokenAuditRecords.length; i++) {
+                let aRecord = tokenAuditRecords[i]
+                if(aRecord.type == 'renounced' && aRecord.time > 0) {
+                    let idx = Math.floor(aRecord.time / (60 * period) - pubTime)
+                    if(idx >= 0 && idx < results.length) results[idx].renounced = 1
+                }
+                if(aRecord.type == 'lpburned' && aRecord.time > 0) {
+                    let idx = Math.floor(aRecord.time / (60 * period) - pubTime)
+                    if(idx >= 0 && idx < results.length) results[idx].burned = 1
+                }
+            }            
         }
 
         let totVol = 0
@@ -308,7 +311,8 @@ const calcMetrics = (token, period) => {
 
         let lastIdx = results.length - 1        
         for(let i = lastIdx - 1; i >= 0; i--) {            
-            results[i].deltaFdv = results[i + 1].fdv - results[i].fdv
+            results[i].deltaFdvUsd = results[i + 1].fdvUsd - results[i].fdvUsd
+            results[i].deltaFdvSol = results[i + 1].fdvSol - results[i].fdvSol
             results[i].deltaVolume = results[i + 1].totalVolume - results[i].totalVolume
             results[i].deltaBuyVolume = results[i + 1].buyVolume - results[i].buyVolume
             results[i].deltaSellVolume = results[i + 1].sellVolume - results[i].sellVolume

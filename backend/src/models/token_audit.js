@@ -2,8 +2,8 @@ const mongoose = require('mongoose');
 
 const tokenAuditSchema = mongoose.Schema({
   token: { type: String, required: true },
-  renouncedTime: { type: Number, required: true },
-  lpburnedTime: { type: Number, required: true }
+  type: { type: String, required: true }, // renounced or lpburned
+  time: { type: Number, required: true }
 });
 
 //module.exports = mongoose.model('Transaction', txSchema);
