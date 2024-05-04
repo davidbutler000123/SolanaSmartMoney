@@ -213,9 +213,12 @@ const calcMetrics = (token, period) => {
                 initLiqUsd: initLiqUsd,
                 liqSol: 0,
                 liqUsd: 0,
-                totalVolume: 0,
-                buyVolume: 0,
-                sellVolume: 0,
+                totalVolumeUsd: 0,
+                totalVolumeSol: 0,
+                buyVolumeUsd: 0,
+                buyVolumeSol: 0,
+                sellVolumeUsd: 0,
+                sellVolumeSol: 0,
                 totalTx: 0,
                 buyTx: 0,
                 sellTx: 0,
@@ -223,9 +226,12 @@ const calcMetrics = (token, period) => {
                 deltaFdvUsd: 0,
                 deltaFdvSol: 0,
                 deltaLiq: 0,
-                deltaVolume: 0,
-                deltaBuyVolume: 0,
-                deltaSellVolume: 0,
+                deltaVolumeUsd: 0,
+                deltaVolumeSol: 0,
+                deltaBuyVolumeUsd: 0,
+                deltaBuyVolumeSol: 0,
+                deltaSellVolumeUsd: 0,
+                deltaSellVolumeSol: 0,
                 deltaAllTx: 0,
                 deltaBuyTx: 0,
                 deltaSellTx: 0,
@@ -280,11 +286,14 @@ const calcMetrics = (token, period) => {
             totSol += item.solAmount
             results[bin].liqSol = totSol
             results[bin].liqUsd = totSol * solPrice
-            results[bin].totalVolume = totVol
+            results[bin].totalVolumeUsd = totVol
+            results[bin].totalVolumeSol = totVol / solPrice
             // results[bin].buyVolume -= buyAdd * item.total
             // results[bin].sellVolume += sellAdd * item.total
-            results[bin].buyVolume = totBuyVol
-            results[bin].sellVolume = totSellVol
+            results[bin].buyVolumeUsd = totBuyVol
+            results[bin].buyVolumeSol = totBuyVol / solPrice
+            results[bin].sellVolumeUsd = totSellVol
+            results[bin].sellVolumeSol = totSellVol / solPrice
 
             totTx += item.tx_count
             totBuyTx += buyAdd * item.tx_count
@@ -313,9 +322,12 @@ const calcMetrics = (token, period) => {
         for(let i = lastIdx - 1; i >= 0; i--) {            
             results[i].deltaFdvUsd = results[i + 1].fdvUsd - results[i].fdvUsd
             results[i].deltaFdvSol = results[i + 1].fdvSol - results[i].fdvSol
-            results[i].deltaVolume = results[i + 1].totalVolume - results[i].totalVolume
-            results[i].deltaBuyVolume = results[i + 1].buyVolume - results[i].buyVolume
-            results[i].deltaSellVolume = results[i + 1].sellVolume - results[i].sellVolume
+            results[i].deltaVolumeUsd = results[i + 1].totalVolumeUsd - results[i].totalVolumeUsd
+            results[i].deltaVolumeSol = results[i + 1].totalVolumeSol - results[i].totalVolumeSol
+            results[i].deltaBuyVolumeUsd = results[i + 1].buyVolumeUsd - results[i].buyVolumeUsd
+            results[i].deltaBuyVolumeSol = results[i + 1].buyVolumeSol - results[i].buyVolumeSol
+            results[i].deltaSellVolumeUsd = results[i + 1].sellVolumeUsd - results[i].sellVolumeUsd
+            results[i].deltaSellVolumeSol = results[i + 1].sellVolumeSol - results[i].sellVolumeSol
             results[i].deltaAllTx = results[i + 1].totalTx - results[i].totalTx
             results[i].deltaBuyTx = results[i + 1].buyTx - results[i].buyTx
             results[i].deltaSellTx = results[i + 1].sellTx - results[i].sellTx
@@ -539,7 +551,7 @@ const sortWallets = (rankSize, filterZero, filterTokensAtleast, sortMode) => {
             { $group: { _id:'$owner', total: { $sum: '$solAmount'}}},
             { $sort: { 'total': 1 } }
         ]
-        let topWallets = await Transaction.aggregate(pipeline, { allowDiskUse: true }).limit(2 * rankSize).exec()
+        let topWallets = await Transaction.aggregate(pipeline, { allowDiskUse: true }).limit(4 * rankSize).exec()
         let wallets = []
         let ranking = 1
 
@@ -586,6 +598,12 @@ const sortWallets = (rankSize, filterZero, filterTokensAtleast, sortMode) => {
             if(trades.length < filterTokensAtleast) continue
             let buyTrades = tradesPerSide.filter(trade => trade._id.side == 'buy')
             let sellTrades = tradesPerSide.filter(trade => trade._id.side == 'sell')
+            if(filterZero) {
+                if(buyTrades.length == 0) continue
+                sellTrades = sellTrades.filter(s => 
+                    buyTrades.filter(b => b._id.tradeSymbol == s._id.tradeSymbol).length > 0
+                )
+            }
             let totalTrades = trades.length
             let profitTrades = trades.filter(trade => trade.total < 0)
             let lossTrades = trades.filter(trade => trade.total >= 0)
