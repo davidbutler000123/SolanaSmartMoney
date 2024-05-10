@@ -551,7 +551,7 @@ const sortWallets = (rankSize, filterZero, filterTokensAtleast, sortMode) => {
             { $group: { _id:'$owner', total: { $sum: '$solAmount'}}},
             { $sort: { 'total': 1 } }
         ]
-        let topWallets = await Transaction.aggregate(pipeline, { allowDiskUse: true }).limit(4 * rankSize).exec()
+        let topWallets = await Transaction.aggregate(pipeline, { allowDiskUse: true }).limit(20 * rankSize).exec()
         let wallets = []
         let ranking = 1
 
