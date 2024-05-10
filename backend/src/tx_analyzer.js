@@ -595,7 +595,6 @@ const sortWallets = (rankSize, filterZero, filterTokensAtleast, sortMode) => {
         for(let wallet of topWallets) {            
             let trades = profitsPerSymbol.filter(item => item._id.owner == wallet._id)
             let tradesPerSide = profitsPerSymbolAndSide.filter(item => item._id.owner == wallet._id)
-            if(trades.length < filterTokensAtleast) continue
             let buyTrades = tradesPerSide.filter(trade => trade._id.side == 'buy')
             let sellTrades = tradesPerSide.filter(trade => trade._id.side == 'sell')
             if(filterZero) {
@@ -607,6 +606,7 @@ const sortWallets = (rankSize, filterZero, filterTokensAtleast, sortMode) => {
                     buyTrades.filter(b => b._id.tradeSymbol == t._id.tradeSymbol).length > 0
                 )
             }
+            if(trades.length < filterTokensAtleast) continue
             let totalTrades = trades.length
             let profitTrades = trades.filter(trade => trade.total < 0)
             let lossTrades = trades.filter(trade => trade.total >= 0)
