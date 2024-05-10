@@ -603,6 +603,9 @@ const sortWallets = (rankSize, filterZero, filterTokensAtleast, sortMode) => {
                 sellTrades = sellTrades.filter(s => 
                     buyTrades.filter(b => b._id.tradeSymbol == s._id.tradeSymbol).length > 0
                 )
+                trades = trades.filter(t => 
+                    buyTrades.filter(b => b._id.tradeSymbol == t._id.tradeSymbol).length > 0
+                )
             }
             let totalTrades = trades.length
             let profitTrades = trades.filter(trade => trade.total < 0)
