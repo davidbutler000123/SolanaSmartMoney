@@ -109,6 +109,9 @@ def save_calc_metrics(address, period):
 
                 # items = json_response.get('data', {}).get('items', [])  # Safely access the 'items' list
 
+                denomiate   = d.DENOMINATE
+                show_delta  = d.SHOW_DELTA
+
                 processed_data = [{
                     "Bin":item['bin'],
                     "TimeStamp": item['timestamp'],
@@ -151,8 +154,51 @@ def save_calc_metrics(address, period):
                 # Assuming 'processed_data' is already defined and available
                 df = pd.DataFrame(processed_data)
 
+                # items = ["Bin", "TimeStamp", "FDV(USD)", "FDV(SOL)", "Renounced", "Burned", "Price(SOL)", "Price(USD)", 
+                #         "Initial Liquidity(SOL)", "Initial Liquidity(USD)", "Liquidity(SOL)", "Liquidity(USD)", "Total Volume(USD)",
+                #         "Total Volume(SOL)", "Total Buy Volume(USD)", "Total Buy Volume(SOL)", "Total Sell Volume(USD)", "Total Sell Volume(SOL)",
+                #         "Total Transactions", "Total Buy Tx", "Total Sell Tx", "Total Holders", "Delta-FDV(USD)", "Delta-FDV(SOL)", "Delta-Liquidity",
+                #         "Delta-Volume(USD)", "Delta-Volume(SOL)", "Delta-Buy Volume(USD)", "Delta-Buy Volume(SOL)", "Delta-Sell Volume(USD)", "Delta-Sell Volume(SOL)",
+                #         "Delta-All Tx", "Delta-Buy Tx", "Delta-Sell Tx", "Delta-Holders"]
+                
+                # items = []
+                if denomiate == 'SOL':
+                    if show_delta:
+                        fil_items = ["Bin", "TimeStamp", "FDV(USD)", "FDV(SOL)", "Renounced", "Burned", "Price(SOL)", "Initial Liquidity(SOL)", "Liquidity(SOL)", 
+                             "Total Volume(SOL)", "Total Buy Volume(SOL)", "Total Sell Volume(SOL)", "Total Transactions", "Total Buy Tx", "Total Sell Tx", "Total Holders", "Delta-FDV(SOL)", "Delta-Liquidity",
+                             "Delta-Volume(SOL)", "Delta-Buy Volume(SOL)", "Delta-Sell Volume(SOL)", "Delta-All Tx", "Delta-Buy Tx", "Delta-Sell Tx", "Delta-Holders"]
+                    else:
+                        fil_items = ["Bin", "TimeStamp", "FDV(USD)", "FDV(SOL)", "Renounced", "Burned", "Price(SOL)", "Initial Liquidity(SOL)", "Liquidity(SOL)", 
+                             "Total Volume(SOL)", "Total Buy Volume(SOL)", "Total Sell Volume(SOL)", "Total Transactions", "Total Buy Tx", "Total Sell Tx", "Total Holders"]
+                    
+                elif denomiate == 'USD':
+                    if show_delta:
+                        fil_items = ["Bin", "TimeStamp", "FDV(USD)", "FDV(SOL)", "Renounced", "Burned", "Price(USD)", "Initial Liquidity(USD)", "Liquidity(USD)", "Total Volume(USD)",
+                             "Total Buy Volume(USD)", "Total Sell Volume(USD)", "Total Transactions", "Total Buy Tx", "Total Sell Tx", "Total Holders", "Delta-FDV(USD)", "Delta-Liquidity",
+                             "Delta-Volume(USD)", "Delta-Buy Volume(USD)", "Delta-Sell Volume(USD)", "Delta-All Tx", "Delta-Buy Tx", "Delta-Sell Tx", "Delta-Holders"]
+                    else:
+                        fil_items = ["Bin", "TimeStamp", "FDV(USD)", "FDV(SOL)", "Renounced", "Burned", "Price(USD)", "Initial Liquidity(USD)", "Liquidity(USD)", "Total Volume(USD)",
+                                "Total Buy Volume(USD)", "Total Sell Volume(USD)", "Total Transactions", "Total Buy Tx", "Total Sell Tx", "Total Holders"]
+                elif denomiate == 'BOTH':
+                    if show_delta:
+                        fil_items = ["Bin", "TimeStamp", "FDV(USD)", "FDV(SOL)", "Renounced", "Burned", "Price(SOL)", "Price(USD)", 
+                                "Initial Liquidity(SOL)", "Initial Liquidity(USD)", "Liquidity(SOL)", "Liquidity(USD)", "Total Volume(USD)",
+                                "Total Volume(SOL)", "Total Buy Volume(USD)", "Total Buy Volume(SOL)", "Total Sell Volume(USD)", "Total Sell Volume(SOL)",
+                                "Total Transactions", "Total Buy Tx", "Total Sell Tx", "Total Holders", "Delta-FDV(USD)", "Delta-FDV(SOL)", "Delta-Liquidity",
+                                "Delta-Volume(USD)", "Delta-Volume(SOL)", "Delta-Buy Volume(USD)", "Delta-Buy Volume(SOL)", "Delta-Sell Volume(USD)", "Delta-Sell Volume(SOL)",
+                                "Delta-All Tx", "Delta-Buy Tx", "Delta-Sell Tx", "Delta-Holders"]
+                    else:
+                        fil_items = ["Bin", "TimeStamp", "FDV(USD)", "FDV(SOL)", "Renounced", "Burned", "Price(SOL)", "Price(USD)", 
+                                "Initial Liquidity(SOL)", "Initial Liquidity(USD)", "Liquidity(SOL)", "Liquidity(USD)", "Total Volume(USD)",
+                                "Total Volume(SOL)", "Total Buy Volume(USD)", "Total Buy Volume(SOL)", "Total Sell Volume(USD)", "Total Sell Volume(SOL)",
+                                "Total Transactions", "Total Buy Tx", "Total Sell Tx", "Total Holders"]
+
+
+                # print(fil_items)
+
+                newDf = df.filter(items=fil_items)
                 # Debug print to check the final dataframe
-                print(df.head())
+                print(newDf.head())
 
                 # with pd.ExcelWriter(d.EXPORT_EXCEL_PATH, mode='w', engine="openpyxl") as writer:
                 #     df.to_excel(writer, sheet_name=token_symbol, index=False)
@@ -161,7 +207,7 @@ def save_calc_metrics(address, period):
 
                 # out_xls_file(df, token_symbol, "w")
 
-                return df, token_symbol
+                return newDf, token_symbol
 
             else:
                 print(f"{c.RED}[save_calc_metrics] Failed to fetch data for address {address}. Status code: {response.status_code}{c.RESET}")
@@ -419,7 +465,12 @@ def fetch_token_history(address, fetchUntil):
 
                 if state == 0: # 
                     df, token_symbol = save_calc_metrics(address, d.PERIOD)
-                    out_xls_file(df, f"{token_symbol}", "w")
+
+                    if d.SHOW_DELTA:
+                        fileName = f"{token_symbol}({d.DENOMINATE}-Delta)"
+                    else:
+                        fileName = f"{token_symbol}({d.DENOMINATE})"
+                    out_xls_file(df, fileName, "w")
                     percent = 10000
                 else:
                     percent = json_response.get('percent_100')
