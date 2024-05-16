@@ -996,7 +996,8 @@ async function findAlertingTokens(buyTxns, holders) {
             }
             query = 'https://api.dexscreener.io/latest/dex/tokens/' + token.address
             response = await axios.get(query)
-            let tokenPrice = 0
+            let tokenName = ''
+            let tokenSymbol = ''
             let totalSupply = 0
             let fdvUsd = 0
             let pairAddress = ''
@@ -1006,9 +1007,12 @@ async function findAlertingTokens(buyTxns, holders) {
                     item.dexId == 'raydium' &&
                     item.quoteToken.symbol == 'SOL') 
                 if(pools && pools.length > 0) {
-                    tokenPrice = pools[0].price
+                    if(pools[0].baseToken) {
+                        tokenName = pools[0].baseToken.name
+                        tokenSymbol = pools[0].baseToken.symbol
+                    }
                     totalSupply = pools[0].supply
-                    liquiditySol = pools[0].liquidity.quote
+                    if(pools[0].liquidity) liquiditySol = pools[0].liquidity.quote
                     fdvUsd = pools[0].fdv
                     pairAddress = pools[0].pairAddress
                 }                
@@ -1041,7 +1045,8 @@ async function findAlertingTokens(buyTxns, holders) {
                 count: 1,
                 token:{
                     address: token.address,
-                    symbol: token.symbol,
+                    name: tokenName,
+                    symbol: tokenSymbol,
                     buy: token.buy,
                     poolCreated: token.poolCreated,
                     pairLifeTimeMins: Math.floor((Date.now() - token.poolCreated) / 60000),
