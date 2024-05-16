@@ -987,6 +987,7 @@ async function findAlertingTokens(buyTxns, holders) {
             })
             let liquiditySol = response.data.data.liquidity
             let holder_count = response.data.data.holder
+            let logoURI = response.data.data.logoURI
             if(holder_count < holders) {
                 resolve({
                     result: 0,
@@ -1047,6 +1048,7 @@ async function findAlertingTokens(buyTxns, holders) {
                     address: token.address,
                     name: tokenName,
                     symbol: tokenSymbol,
+                    logoURI: logoURI,
                     buy: token.buy,
                     poolCreated: token.poolCreated,
                     pairLifeTimeMins: Math.floor((Date.now() - token.poolCreated) / 60000),
