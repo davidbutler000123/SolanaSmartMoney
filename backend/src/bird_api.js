@@ -115,8 +115,8 @@ let TokenList = {
             holder.amount += amount
             if(holder.amount == 0) delete token.holders[holder_addr]            
         }
-        // token.holder_count = Object.keys(token.holders).length
-        token.holder_count = Object.values(token.holders).filter(item => item.amount > 0).length
+        token.holder_count = Object.keys(token.holders).length
+        // token.holder_count = Object.values(token.holders).filter(item => item.amount > 0).length
     }
 }
 

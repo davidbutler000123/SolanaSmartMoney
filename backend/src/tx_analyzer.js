@@ -975,18 +975,67 @@ async function findAlertingTokens(buyTxns, holders) {
         try {
             let token = buyMetTokens[0]
             TokenList.tokens[token.address].alerted = true
-            let query = `https://public-api.birdeye.so/defi/token_overview?address=${token.address}`
-            let response = await axios.get(query, {
+            let query = ''
+            let response = null
+            query = `https://public-api.birdeye.so/defi/token_overview?address=${token.address}`
+            response = await axios.get(query, {
                 headers: {
                     'accept': 'application/json',
                     'x-chain': 'solana',
                     'X-API-KEY': process.env.BIRDEYE_API_KEY
                 }
             })
-            console.log('token_overview request response: ')
-            console.log(response.data.data)
-            let liquidity = response.data.data.liquidity
-            let holders = response.data.data.holder
+            let liquiditySol = response.data.data.liquidity
+            let holder_count = response.data.data.holder
+            if(holder_count < holders) {
+                resolve({
+                    result: 0,
+                    count: 0
+                })
+                return
+            }
+            query = 'https://api.dexscreener.io/latest/dex/tokens/' + token.address
+            response = await axios.get(query)
+            let tokenPrice = 0
+            let totalSupply = 0
+            let fdvUsd = 0
+            let pairAddress = ''
+            if(response.data && response.data.pairs && response.data.pairs.length > 0) {
+                let pools = response.data.pairs.filter(item => 
+                    item.chainId == 'solana' && 
+                    item.dexId == 'raydium' &&
+                    item.quoteToken.symbol == 'SOL') 
+                if(pools && pools.length > 0) {
+                    tokenPrice = pools[0].price
+                    totalSupply = pools[0].supply
+                    liquiditySol = pools[0].liquidity.quote
+                    fdvUsd = pools[0].fdv
+                    pairAddress = pools[0].pairAddress
+                }                
+            }            
+            let initLiquiditySol = 0
+            query = `https://public-api.birdeye.so/defi/txs/pair?address=${pairAddress}&offset=0&limit=1&tx_type=add&sort_type=desc`
+            response = await axios.get(query, {
+                headers: {
+                    'accept': 'application/json',
+                    'x-chain': 'solana',
+                    'X-API-KEY': process.env.BIRDEYE_API_KEY
+                }
+            })
+            if(response.data && response.data.data && response.data.data.items && response.data.data.items.length > 0) {
+                let trade = response.data.data.items[0]
+                if(trade.tokens && trade.tokens.length > 0 && trade.tokens[0].symbol == 'SOL') {
+                    initLiquiditySol = trade.tokens[0].amount / (10 ** trade.tokens[0].decimals)
+                }
+                else if(trade.tokens && trade.tokens.length > 1 && trade.tokens[1].symbol == 'SOL') {
+                    initLiquiditySol = trade.tokens[1].amount / (10 ** trade.tokens[1].decimals)
+                }
+            }
+            let pubTime = Math.floor(token.poolCreated / 1000)
+            let targetTime = Math.floor(Date.now() / 1000)
+            await askPriceHistory(PriceProvider.sol_address, 'token', '1m', pubTime, targetTime)
+            let solPriceInit = PriceProvider.querySol(pubTime)
+            let solPriceNow = PriceProvider.querySol(targetTime)
             resolve({
                 result: 0,
                 count: 1,
@@ -996,9 +1045,13 @@ async function findAlertingTokens(buyTxns, holders) {
                     buy: token.buy,
                     poolCreated: token.poolCreated,
                     pairLifeTimeMins: Math.floor((Date.now() - token.poolCreated) / 60000),
-                    liquidity: liquidity,                
-                    // holders: token.holder_count
-                    holders: holders
+                    initLiquidityUsd: initLiquiditySol * solPriceInit,
+                    initLiquiditySol: initLiquiditySol,
+                    fdvUsd: fdvUsd,
+                    fdvSol: fdvUsd / solPriceNow,
+                    liquidityUsd: liquiditySol * solPriceNow,
+                    liquiditySol: liquiditySol,                    
+                    holder_count: holder_count ? holder_count : token.holder_count
                 }                
             })
         } catch (error) {
