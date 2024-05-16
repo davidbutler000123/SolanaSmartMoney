@@ -117,6 +117,21 @@ app.get('/api/sortWallets', (req, res) => {
   })
 })
 
+app.get('/api/findAlertingTokens', (req, res) => {
+  let buyTxns = parseInt(req.query.buyTxns)
+  let holders = parseInt(req.query.holders)
+  txAanalyzer.findAlertingTokens(buyTxns, holders)
+  .then(result => {
+    res.send(result)
+  })
+  .catch(err => {
+    res.send({
+      result: 1,
+      error: err
+    })
+  })
+})
+
 app.get('/api/calcVolume', (req, res) => {  
   txAanalyzer.calcVolume(req.query.token, req.query.period)
   .then(records => {

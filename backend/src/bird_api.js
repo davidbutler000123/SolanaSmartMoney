@@ -1,6 +1,6 @@
 const axios = require('axios');
-const { Transaction, HistoryTxn } = require('./models')
-const { logTimeString } = require('./utils/utils')
+const { Transaction, HistoryTxn, Token } = require('./models')
+const { logTimeString, fmtTimestr, checkLivePoolTime } = require('./utils/utils')
 
 let pageLimit = 10
 
@@ -49,6 +49,74 @@ let PriceProvider = {
         if(candPrices && candPrices.length > 0) return candPrices[0].value
         if(PriceProvider.token_prices.length > 0) return PriceProvider.token_prices[0].value
         return 0
+    }
+}
+
+let TokenList = {
+    tokens: [],
+    initFromDb: async () => {
+        let dbTokens = await Token.find().map(item => item.address)
+        if(dbTokens && dbTokens.length > 0) TokenList.tokens = dbTokens
+    },
+    queryToken: (address, symbol) => {
+        console.log('query_addr = ' + address)
+        let existTokens = TokenList.tokens[address]
+        if(existTokens) {
+            return true
+        }
+        TokenList.tokens[address] = {
+            address: address,
+            symbol: symbol,
+            buy: 0,
+            sell: 0,
+            poolCreated: 0,
+            holders: {},
+            holder_count: 0,
+            alerted: false
+        }
+        return false
+    },
+    increaseTokenBuy: (address) => {
+        let token = TokenList.tokens[address]
+        if(!token) return
+        token.buy++
+    },
+    updateTokenPoolInfo: (address, poolCreated) => {
+        let token = TokenList.tokens[address]
+        if(!token) return
+        if(checkLivePoolTime(poolCreated)) token.poolCreated = poolCreated
+        else delete TokenList.tokens[address]
+    },
+    removeOldTokens: () => {
+        Object.keys(TokenList.tokens).forEach(address => {
+            let token = TokenList.tokens[address]
+            if(!token) return
+            if(!checkLivePoolTime(token.poolCreated)) {
+                delete TokenList.tokens[address]
+            }
+        })
+    },
+    updateTokenAlerted: (address, alerted) => {
+        let token = TokenList.tokens[address]
+        if(!token) return
+        token.alerted = alerted
+    },
+    updateHolders: (token_addr, holder_addr, amount) => {
+        let token = TokenList.tokens[token_addr]
+        if(!token) return
+        let holder = token.holders[holder_addr]
+        if(!holder) {
+            token.holders[holder_addr] = {
+                address: holder_addr,
+                amount: amount
+            }            
+        }
+        else {
+            holder.amount += amount
+            if(holder.amount == 0) delete token.holders[holder_addr]            
+        }
+        // token.holder_count = Object.keys(token.holders).length
+        token.holder_count = Object.values(token.holders).filter(item => item.amount > 0).length
     }
 }
 
@@ -257,6 +325,11 @@ async function saveTokenTxnToDB(tx) {
         baseAmount *= (-1.0)
     }
 
+    if(side == 'buy') { TokenList.increaseTokenBuy(token) }
+    if(side == 'buy' || side == 'sell') {
+        TokenList.updateHolders(token, tx.owner, baseAmount * (-1))
+    }
+
     const t = new Transaction({
         txHash: tx.txHash,
         blockUnixTime: tx.blockUnixTime,
@@ -383,14 +456,70 @@ async function savePairTxnToDB(tx, sideType) {
     })  
 }
 
+async function updateTokenList(tx) {
+    if(!tx) return    
+    if(!tx.from || !tx.to) return
+    let token_addr = ''
+    let token_symbol = ''
+    if(tx.from.symbol == 'SOL' || tx.from.symbol == 'USDC' || tx.from.symbol == 'USDT') {
+        if(tx.to.symbol == 'SOL' || tx.to.symbol == 'USDC' || tx.to.symbol == 'USDT') return
+        token_addr = tx.to.address
+        token_symbol = tx.to.symbol + '-' + tx.from.symbol
+    }
+    else if(tx.to.symbol == 'SOL' || tx.to.symbol == 'USDC' || tx.to.symbol == 'USDT') {
+        if(tx.from.symbol == 'SOL' || tx.from.symbol == 'USDC' || tx.from.symbol == 'USDT') return
+        token_addr = tx.from.address
+        token_symbol = tx.from.symbol + '-' + tx.to.symbol
+    }
+    console.log('token_symbol = ' + token_symbol)
+    if(token_addr == '') return
+
+    TokenList.removeOldTokens()
+    if(TokenList.queryToken(token_addr, token_symbol)) return
+
+    let nowTime = Date.now()
+    let query = `https://api.dexscreener.io/latest/dex/tokens/${token_addr}`
+    let response = await axios.get(query)
+    if(!response.data || !response.data.pairs || response.data.pairs.length == 0) {
+        TokenList.updateTokenPoolInfo(token_addr, nowTime)
+        return
+    }
+    let pools = response.data.pairs.filter(item => 
+        item.chainId == 'solana' && 
+        item.dexId == 'raydium' &&
+        item.quoteToken.symbol == 'SOL') 
+    if(!pools || pools.length == 0) {
+        TokenList.updateTokenPoolInfo(token_addr, nowTime)
+        return
+    }
+    let pool = pools[0]
+
+    let tzOffset = new Date().getTimezoneOffset()
+    let pairCreatedAt = pool.pairCreatedAt + tzOffset * 60000    
+    TokenList.updateTokenPoolInfo(token_addr, pairCreatedAt)
+    console.log('token poolTime is updated: token= ' + token_addr, ', time= ' + fmtTimestr(pairCreatedAt) + ', nowTime= ' + fmtTimestr(Date.now()))
+    return
+    const t = new Token({
+        address: token_addr,
+        name: name,
+        symbol: symbol,
+        poolAddress:'',
+        poolCreated: poolFromDexScreen.pairCreatedAt,
+        owner: ''
+    })
+    t.save()
+}
+
 module.exports = {
     SubscriberTxCounter,
     PriceProvider,
+    TokenList,
     askPriceHistory,
     fetchLiquidity,
     getTokenTrades,
     getPairTrades,
     tokenCreationInfo,
     saveTokenTxnToDB,
-    savePairTxnToDB
+    savePairTxnToDB,
+    updateTokenList
 }

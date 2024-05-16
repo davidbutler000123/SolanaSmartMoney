@@ -3,7 +3,7 @@
 var WebSocketClient = require('websocket').client;
 const util = require("util")
 const { COIN_TOKENS } = require('./utils/coin_tokens')
-const { saveTokenTxnToDB } = require('./bird_api')
+const { saveTokenTxnToDB, updateTokenList } = require('./bird_api')
 const CHAIN= 'solana'
 
 var client = new WebSocketClient();
@@ -41,6 +41,9 @@ client.on('connect', async function (connection) {
                 return
             }
 
+            if(tx.side != 'buy' && tx.side != 'sell') {
+                updateTokenList(tx)
+            }
             saveTokenTxnToDB(tx)
         }
     });

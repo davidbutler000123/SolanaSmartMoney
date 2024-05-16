@@ -6,6 +6,7 @@ const {
     savePairTxnToDB,
     SubscriberTxCounter, 
     PriceProvider,
+    TokenList,
     askPriceHistory,
     tokenCreationInfo} = require('./bird_api')
 const {
@@ -900,10 +901,24 @@ async function fetchTokenTradesHistory(token, until)
 {
     return new Promise(async (resolve, reject) => {
         await askPriceFromDexScreen(token, resolve)
-        if(!poolFromDexScreen) return
+        if(!poolFromDexScreen) {
+            resolve({
+                state: -1,
+                percent_100: 0,
+                percent: 0
+            })
+            return
+        }
 
         let pair = poolFromDexScreen.pairAddress
-        if(!pair) return
+        if(!pair) {
+            resolve({
+                state: -1,
+                percent_100: 0,
+                percent: 0
+            })
+            return
+        }
 
         let fPercent = await getFetchPercent(token, pair)
         console.log('fPercent = ' + fPercent)
@@ -944,7 +959,55 @@ async function fetchTokenTradesHistory(token, until)
     })
 }
 
-module.exports = {    
+async function findAlertingTokens(buyTxns, holders) {
+    return new Promise(async (resolve, reject) => {
+        let buyMetTokens = Object.values(TokenList.tokens).filter(item => 
+            item.buy > buyTxns && 
+            item.holder_count > holders &&
+            item.alerted == false)
+        if(!buyMetTokens || buyMetTokens.length == 0) {
+            resolve({
+                result: 0,
+                count: 0
+            })
+            return
+        }
+        try {
+            let token = buyMetTokens[0]
+            TokenList.tokens[token.address].alerted = true
+            let query = `https://public-api.birdeye.so/defi/token_overview?address=${token.address}`
+            let response = await axios.get(query, {
+                headers: {
+                    'accept': 'application/json',
+                    'x-chain': 'solana',
+                    'X-API-KEY': process.env.BIRDEYE_API_KEY
+                }
+            })
+            console.log('token_overview request response: ')
+            console.log(response.data.data)
+            let liquidity = response.data.data.liquidity
+            let holders = response.data.data.holder
+            resolve({
+                result: 0,
+                count: 1,
+                token:{
+                    address: token.address,
+                    symbol: token.symbol,
+                    buy: token.buy,
+                    poolCreated: token.poolCreated,
+                    pairLifeTimeMins: Math.floor((Date.now() - token.poolCreated) / 60000),
+                    liquidity: liquidity,                
+                    // holders: token.holder_count
+                    holders: holders
+                }                
+            })
+        } catch (error) {
+            reject(error.toString())
+        }
+    })
+}
+
+module.exports = {
     calcMetrics,
     calcPnlPerToken,
     calcTopTrader,
@@ -954,5 +1017,6 @@ module.exports = {
     calcHolders,
     askPriceFromDexScreen,
     fetchTokenTradesHistory,
-    getFetchPercent    
+    getFetchPercent,
+    findAlertingTokens
 }
