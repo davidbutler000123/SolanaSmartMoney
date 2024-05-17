@@ -3,7 +3,7 @@
 var WebSocketClient = require('websocket').client;
 const util = require("util")
 const { COIN_TOKENS } = require('./utils/coin_tokens')
-const { saveTokenTxnToDB, updateTokenList } = require('./bird_api')
+const { saveTokenTxnToDB, updateTokenList, SmartWalletList } = require('./bird_api')
 const CHAIN= 'solana'
 
 var client = new WebSocketClient();
@@ -44,6 +44,9 @@ client.on('connect', async function (connection) {
             if(tx.side != 'buy' && tx.side != 'sell') {
                 updateTokenList(tx)
             }
+            else if(tx.side == 'buy') {
+                SmartWalletList.checkNewTrade(tx)
+            }
             saveTokenTxnToDB(tx)
         }
     });
@@ -77,6 +80,7 @@ function checkReconnect() {
 
 connectBirdeyeWss()
 
+SmartWalletList.updateFromDb()
 setInterval(checkReconnect, 60000)  // check reconnecting per 1 minutes
 
 module.exports = {    

@@ -677,79 +677,6 @@ const sortWallets = (rankSize, filterZero, filterTokensAtleast, sortMode) => {
     })
 }
 
-const calcVolume = (token, period) => {
-    return new Promise(async (resolve, reject) => {
-
-        await deleteDuplicates()
-
-        let limitTime = Math.floor(Date.now() / 1000) - period
-
-        let query = { blockUnixTime: {$gt: limitTime}, token: token, type: "transfer" }        
-        let records = await Transaction.find(query)
-        let lpBuySum = 0
-        let lpSellSum = 0
-        records.forEach(element => {
-            if(element.side == "buy") lpBuySum += element.total
-            else if(element.side == "sell") lpSellSum += element.total
-        });
-        
-        resolve({
-            token: token,
-            buy: lpBuySum,
-            sell: lpSellSum * (-1),
-            sum: lpBuySum - lpSellSum,
-            txs: records
-        })
-    })
-}
-
-const calcTxs = (token, period) => {
-    return new Promise(async (resolve, reject) => {
-
-        await deleteDuplicates()
-
-        let limitTime = Math.floor(Date.now() / 1000) - period
-
-        let query = { blockUnixTime: {$gt: limitTime}, token: token, type: "transfer" }        
-        let records = await Transaction.find(query)
-        let buyCount = 0
-        let sellCount = 0
-        records.forEach(element => {
-            if(element.side == "buy") buyCount += 1
-            else if(element.side == "sell") sellCount += 1
-        });
-        
-        resolve({
-            token: token,
-            buy: buyCount,
-            sell: sellCount,
-            total: buyCount + sellCount,
-            txs: records
-        })
-    })
-}
-
-const calcHolders = (token, period) => {
-    return new Promise(async (resolve, reject) => {
-
-        await deleteDuplicates()
-
-        let limitTime = Math.floor(Date.now() / 1000) - period
-        let pipeline = [
-            {$match: { blockUnixTime: {$gt: limitTime}, token: token, type: "transfer"}},
-            {$group:{ _id: "$owner", tx_count: { $sum: 1 } }}
-        ]
-
-        let holders = await Transaction.aggregate(pipeline).exec()
-        
-        resolve({
-            token: token,
-            holder_cnt: holders.length,
-            holders: holders,            
-        })
-    })
-}
-
 async function fetchPairTradeHistoryForSwap(pair, until) {
     let pairCreateTime = new Date(poolFromDexScreen.pairCreatedAt)
     console.log(`pairCreatetime = ${pairCreateTime.toLocaleDateString()}`)
@@ -999,23 +926,36 @@ async function findAlertingTokens(buyTxns, holders) {
             response = await axios.get(query)
             let tokenName = ''
             let tokenSymbol = ''
-            let totalSupply = 0
             let fdvUsd = 0
             let pairAddress = ''
+            let dexUrl = ''
+            let webSiteUrl = ''
+            let telegramUrl = ''
+            let twitterUrl = ''
             if(response.data && response.data.pairs && response.data.pairs.length > 0) {
                 let pools = response.data.pairs.filter(item => 
                     item.chainId == 'solana' && 
                     item.dexId == 'raydium' &&
                     item.quoteToken.symbol == 'SOL') 
                 if(pools && pools.length > 0) {
-                    if(pools[0].baseToken) {
-                        tokenName = pools[0].baseToken.name
-                        tokenSymbol = pools[0].baseToken.symbol
+                    let validPool = pools[0]
+                    if(validPool.baseToken) {
+                        tokenName = validPool.baseToken.name
+                        tokenSymbol = validPool.baseToken.symbol
                     }
-                    totalSupply = pools[0].supply
-                    if(pools[0].liquidity) liquiditySol = pools[0].liquidity.quote
-                    fdvUsd = pools[0].fdv
-                    pairAddress = pools[0].pairAddress
+                    if(validPool.liquidity) liquiditySol = validPool.liquidity.quote
+                    fdvUsd = validPool.fdv
+                    pairAddress =validPool.pairAddress
+                    if(validPool.url) dexUrl = validPool.url
+                    if(validPool.info && validPool.info.websites && validPool.info.websites.length > 0) {
+                        webSiteUrl = validPool.info.websites[0].url
+                    }
+                    if(validPool.info && validPool.info.socials && validPool.info.socials.length > 1) {
+                        let socialTel = validPool.info.socials.filter(item => item.type == 'telegram')
+                        if(socialTel && socialTel.length > 0) telegramUrl = socialTel[0].url
+                        let socialTwit = validPool.info.socials.filter(item => item.type == 'twitter')
+                        if(socialTwit && socialTwit.length > 0) twitterUrl = socialTwit[0].url
+                    }                    
                 }                
             }            
             let initLiquiditySol = 0
@@ -1049,6 +989,10 @@ async function findAlertingTokens(buyTxns, holders) {
                     name: tokenName,
                     symbol: tokenSymbol,
                     logoURI: logoURI,
+                    dexUrl: dexUrl,
+                    webSiteUrl: webSiteUrl,
+                    telegramUrl: telegramUrl,
+                    twitterUrl: twitterUrl,
                     buy: token.buy,
                     poolCreated: token.poolCreated,
                     pairLifeTimeMins: Math.floor((Date.now() - token.poolCreated) / 60000),
@@ -1072,9 +1016,6 @@ module.exports = {
     calcPnlPerToken,
     calcTopTrader,
     sortWallets,
-    calcVolume,
-    calcTxs,
-    calcHolders,
     askPriceFromDexScreen,
     fetchTokenTradesHistory,
     getFetchPercent,

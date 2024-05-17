@@ -1,6 +1,14 @@
 const axios = require('axios');
-const { Transaction, HistoryTxn, Token } = require('./models')
-const { logTimeString, fmtTimestr, checkLivePoolTime } = require('./utils/utils')
+const { Transaction, HistoryTxn, Token, SmartWallet } = require('./models')
+const { 
+    logTimeString, 
+    fmtTimestr, 
+    checkLivePoolTime, 
+    destructTradeTransaction } = require('./utils/utils');
+
+const {
+    getPoolInfo
+} = require('./dexscreener_api')
 
 let pageLimit = 10
 
@@ -35,6 +43,7 @@ let SubscriberTxCounter = {
 
 let PriceProvider = {
     sol_address: 'So11111111111111111111111111111111111111112',
+    currentSol: 0,
     sol_prices: [],
     token_prices: [],
     querySol: (time) => {
@@ -49,6 +58,22 @@ let PriceProvider = {
         if(candPrices && candPrices.length > 0) return candPrices[0].value
         if(PriceProvider.token_prices.length > 0) return PriceProvider.token_prices[0].value
         return 0
+    },
+    startSolQuerying: () => {
+        setInterval(async function() {
+            let query = 'https://public-api.birdeye.so/defi/price?address=So11111111111111111111111111111111111111112'
+            let response = await axios.get(query, {
+                headers: {
+                    'accept': 'application/json',
+                    'x-chain': 'solana',
+                    'X-API-KEY': process.env.BIRDEYE_API_KEY
+                }
+            })
+            
+            if(response && response.data && response.data.success) {
+                PriceProvider.currentSol = response.data.data.value
+            }
+        }, 10000)
     }
 }
 
@@ -59,7 +84,6 @@ let TokenList = {
         if(dbTokens && dbTokens.length > 0) TokenList.tokens = dbTokens
     },
     queryToken: (address, symbol) => {
-        console.log('query_addr = ' + address)
         let existTokens = TokenList.tokens[address]
         if(existTokens) {
             return true
@@ -117,6 +141,67 @@ let TokenList = {
         }
         token.holder_count = Object.keys(token.holders).length
         // token.holder_count = Object.values(token.holders).filter(item => item.amount > 0).length
+    }
+}
+
+let SmartWalletList = {
+    limitPeriod: 3600000,  // 1 hour
+    singleWallets: {},
+    groupWallets: {},
+    singleTrades: [],
+    groupTrades: [],
+    groupLastTradeTimes: {},
+    updateFromDb: async () => {
+        let dbWallets = await SmartWallet.find()
+        SmartWalletList.singleWallets = {}
+        SmartWalletList.groupWallets = {}
+        for(let i = 0; i < dbWallets.length; i++) {
+            const wallet = dbWallets[i]
+            if(wallet.type == 'single') SmartWalletList.singleWallets[wallet.address] = wallet.type
+            else {
+                SmartWalletList.groupWallets[wallet.address] = wallet.type
+                SmartWalletList.groupLastTradeTimes[wallet.address] = 0
+            }
+        }
+    },
+    clearOldTrades: async() => {
+        SmartWalletList.singleTrades = SmartWalletList.singleTrades.filter(item => 
+            (Date.now() - item.createdAt < SmartWalletList.limitPeriod)
+        )
+        SmartWalletList.groupTrades = SmartWalletList.groupTrades.filter(item => 
+            (Date.now() - item.createdAt < SmartWalletList.limitPeriod)
+        )
+    },
+    checkNewTrade: async (tx) => {
+        let bSingleSmart = false
+        let bGroupSmart = false
+        if(tx.side == 'buy' && SmartWalletList.singleWallets[tx.owner]) {            
+            bSingleSmart = true
+        }
+        if(tx.side == 'buy' && SmartWalletList.groupWallets[tx.owner]) {            
+            SmartWalletList.groupLastTradeTimes[tx.owner] = Date.now()
+            let OldTradeWallets = Object.keys(SmartWalletList.groupWallets).filter(wallet => 
+                (Date.now() - SmartWalletList.groupLastTradeTimes[wallet] > SmartWalletList.limitPeriod))
+            if(!OldTradeWallets || OldTradeWallets.length == 0) bGroupSmart = true
+        }
+
+        if(bSingleSmart || bGroupSmart) {
+            let trade = destructTradeTransaction(tx)
+            let poolInfo = await getPoolInfo(trade.token)
+            trade['createdAt'] = Date.now()
+            trade['pool'] = poolInfo
+            if(bSingleSmart) {
+                SmartWalletList.singleTrades.push(trade)
+                console.log('New single wallet trade: owner= ' + tx.owner + 
+                    ', count= ' + SmartWalletList.singleTrades.length)
+            }
+            if(bGroupSmart) {
+                SmartWalletList.groupTrades.push(trade)
+                console.log('New group wallet trade: owner= ' + tx.owner + 
+                    ', count= ' + SmartWalletList.groupTrades.length)
+            }
+            SmartWalletList.clearOldTrades()
+        }
     }
 }
 
@@ -471,7 +556,7 @@ async function updateTokenList(tx) {
         token_addr = tx.from.address
         token_symbol = tx.from.symbol + '-' + tx.to.symbol
     }
-    console.log('token_symbol = ' + token_symbol)
+    console.log('pool_symbol = ' + token_symbol)
     if(token_addr == '') return
 
     TokenList.removeOldTokens()
@@ -497,7 +582,6 @@ async function updateTokenList(tx) {
     let tzOffset = new Date().getTimezoneOffset()
     let pairCreatedAt = pool.pairCreatedAt + tzOffset * 60000    
     TokenList.updateTokenPoolInfo(token_addr, pairCreatedAt)
-    console.log('token poolTime is updated: token= ' + token_addr, ', time= ' + fmtTimestr(pairCreatedAt) + ', nowTime= ' + fmtTimestr(Date.now()))
     return
     const t = new Token({
         address: token_addr,
@@ -510,10 +594,13 @@ async function updateTokenList(tx) {
     t.save()
 }
 
+PriceProvider.startSolQuerying()
+
 module.exports = {
     SubscriberTxCounter,
     PriceProvider,
     TokenList,
+    SmartWalletList,
     askPriceHistory,
     fetchLiquidity,
     getTokenTrades,

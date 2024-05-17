@@ -15,6 +15,7 @@ import { guard, newToken } from './utils/auth';
 require('./subscribe_txs_token')
 require('./trade_indexer')
 const txAanalyzer = require('./tx_analyzer')
+const walletMannager = require('./walletManager')
 const alchemyApi = require('./alchemy_api')
 
 const app = express();
@@ -117,6 +118,15 @@ app.get('/api/sortWallets', (req, res) => {
   })
 })
 
+app.get('/api/getLpburn', (req, res) => {  
+  alchemyApi.getLpburn(req.query.token)
+  res.send(
+    {
+      result: 0
+    }
+  )  
+})
+
 app.get('/api/findAlertingTokens', (req, res) => {
   let buyTxns = parseInt(req.query.buyTxns)
   let holders = parseInt(req.query.holders)
@@ -132,44 +142,49 @@ app.get('/api/findAlertingTokens', (req, res) => {
   })
 })
 
-app.get('/api/calcVolume', (req, res) => {  
-  txAanalyzer.calcVolume(req.query.token, req.query.period)
-  .then(records => {
-    res.send(records)
+app.get('/api/addSmartWallet', (req, res) => {  
+  walletMannager.addWallet(req.query.address, req.query.type)
+  .then(wallets => {
+    res.send(wallets)
   })
   .catch(err => {
     res.send([])
   })
 })
 
-app.get('/api/calcTxs', (req, res) => {  
-  txAanalyzer.calcTxs(req.query.token, req.query.period)
-  .then(records => {
-    res.send(records)
+app.get('/api/deleteSmartWallet', (req, res) => {  
+  walletMannager.deleteWallet(req.query.address, req.query.type)
+  .then(wallets => {
+    res.send(wallets)
   })
   .catch(err => {
     res.send([])
   })
 })
 
-app.get('/api/calcHolders', (req, res) => {  
-  txAanalyzer.calcHolders(req.query.token, req.query.period)
-  .then(records => {
-    res.send(records)
+app.get('/api/listSmartWallet', (req, res) => {  
+  walletMannager.listWallet(req.query.type)
+  .then(wallets => {
+    res.send(wallets)
   })
   .catch(err => {
     res.send([])
   })
 })
 
-app.get('/api/getLpburn', (req, res) => {  
-  alchemyApi.getLpburn(req.query.token)
-  res.send(
-    {
-      result: 0
-    }
-  )  
+app.post('/api/updateSmartWallets', (req, res) => {
+  const {wallets, type} = req.body
+  console.log('wallets:'); console.log(wallets)
+  console.log('type = ' + type)
+  walletMannager.updateWallets(wallets, type)
+  .then(wallets => {
+    res.send(wallets)
+  })
+  .catch(err => {
+    res.send([])
+  })
 })
+
 //* END ROUTES *//
 
 app.listen(config.port, () => {
