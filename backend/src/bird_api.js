@@ -59,7 +59,6 @@ let TokenList = {
         if(dbTokens && dbTokens.length > 0) TokenList.tokens = dbTokens
     },
     queryToken: (address, symbol) => {
-        console.log('query_addr = ' + address)
         let existTokens = TokenList.tokens[address]
         if(existTokens) {
             return true
@@ -471,7 +470,7 @@ async function updateTokenList(tx) {
         token_addr = tx.from.address
         token_symbol = tx.from.symbol + '-' + tx.to.symbol
     }
-    console.log('token_symbol = ' + token_symbol)
+    console.log('pool_symbol = ' + token_symbol)
     if(token_addr == '') return
 
     TokenList.removeOldTokens()
@@ -497,7 +496,6 @@ async function updateTokenList(tx) {
     let tzOffset = new Date().getTimezoneOffset()
     let pairCreatedAt = pool.pairCreatedAt + tzOffset * 60000    
     TokenList.updateTokenPoolInfo(token_addr, pairCreatedAt)
-    console.log('token poolTime is updated: token= ' + token_addr, ', time= ' + fmtTimestr(pairCreatedAt) + ', nowTime= ' + fmtTimestr(Date.now()))
     return
     const t = new Token({
         address: token_addr,

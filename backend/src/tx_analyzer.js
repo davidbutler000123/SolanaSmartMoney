@@ -1002,20 +1002,35 @@ async function findAlertingTokens(buyTxns, holders) {
             let totalSupply = 0
             let fdvUsd = 0
             let pairAddress = ''
+            let dexUrl = ''
+            let webSiteUrl = ''
+            let telegramUrl = ''
+            let twitterUrl = ''
             if(response.data && response.data.pairs && response.data.pairs.length > 0) {
                 let pools = response.data.pairs.filter(item => 
                     item.chainId == 'solana' && 
                     item.dexId == 'raydium' &&
                     item.quoteToken.symbol == 'SOL') 
                 if(pools && pools.length > 0) {
-                    if(pools[0].baseToken) {
-                        tokenName = pools[0].baseToken.name
-                        tokenSymbol = pools[0].baseToken.symbol
+                    let validPool = pools[0]
+                    if(validPool.baseToken) {
+                        tokenName = validPool.baseToken.name
+                        tokenSymbol = validPool.baseToken.symbol
                     }
-                    totalSupply = pools[0].supply
-                    if(pools[0].liquidity) liquiditySol = pools[0].liquidity.quote
-                    fdvUsd = pools[0].fdv
-                    pairAddress = pools[0].pairAddress
+                    totalSupply = validPool.supply
+                    if(validPool.liquidity) liquiditySol = validPool.liquidity.quote
+                    fdvUsd = validPool.fdv
+                    pairAddress =validPool.pairAddress
+                    if(validPool.url) dexUrl = validPool.url
+                    if(validPool.info && validPool.info.websites && validPool.info.websites.length > 0) {
+                        webSiteUrl = validPool.info.websites[0].url
+                    }
+                    if(validPool.info && validPool.info.socials && validPool.info.socials.length > 1) {
+                        let socialTel = validPool.info.socials.filter(item => item.type == 'telegram')
+                        if(socialTel && socialTel.length > 0) telegramUrl = socialTel[0].url
+                        let socialTwit = validPool.info.socials.filter(item => item.type == 'twitter')
+                        if(socialTwit && socialTwit.length > 0) twitterUrl = socialTwit[0].url
+                    }                    
                 }                
             }            
             let initLiquiditySol = 0
@@ -1049,6 +1064,10 @@ async function findAlertingTokens(buyTxns, holders) {
                     name: tokenName,
                     symbol: tokenSymbol,
                     logoURI: logoURI,
+                    dexUrl: dexUrl,
+                    webSiteUrl: webSiteUrl,
+                    telegramUrl: telegramUrl,
+                    twitterUrl: twitterUrl,
                     buy: token.buy,
                     poolCreated: token.poolCreated,
                     pairLifeTimeMins: Math.floor((Date.now() - token.poolCreated) / 60000),
