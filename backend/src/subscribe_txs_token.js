@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import * as instance from './bot.js';
 
 var WebSocketClient = require('websocket').client;
 const util = require("util")
@@ -45,7 +46,8 @@ client.on('connect', async function (connection) {
                 updateTokenList(tx)
             }
             else if(tx.side == 'buy') {
-                SmartWalletList.checkNewTrade(tx)
+                if (instance.bot_start)
+                    SmartWalletList.checkNewTrade(tx)
             }
             saveTokenTxnToDB(tx)
         }
@@ -80,7 +82,8 @@ function checkReconnect() {
 
 connectBirdeyeWss()
 
-SmartWalletList.updateFromDb()
+// SmartWalletList.updateFromDb()
+SmartWalletList.start()
 setInterval(checkReconnect, 60000)  // check reconnecting per 1 minutes
 
 module.exports = {    

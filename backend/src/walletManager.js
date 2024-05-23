@@ -16,7 +16,7 @@ async function addWallet(address, type) {
         await w.save()
     }
 
-    SmartWalletList.updateFromDb()
+    // SmartWalletList.updateFromDb()
     const wallets = await SmartWallet.find({type: type})
     return wallets
 }
@@ -28,7 +28,7 @@ async function deleteWallet(address, type) {
         type: type
     })
 
-    SmartWalletList.updateFromDb()
+    // SmartWalletList.updateFromDb()
     const wallets = await SmartWallet.find({type: type})
     return wallets
 }
@@ -57,7 +57,7 @@ async function updateWallets(wallets, type) {
         }
     }
 
-    SmartWalletList.updateFromDb()
+    // SmartWalletList.updateFromDb()
     const dbWallets = await SmartWallet.find({
         type: type
     })

@@ -11,6 +11,7 @@ export const getPoolInfo = async (token) => {
     let pairAddress = ''
     let pairCreatedAt = 0
     let pairLifeTimeMins = 0
+    let pairAgeLabel = ''
     let dexUrl = ''
     let webSiteUrl = ''
     let telegramUrl = ''
@@ -22,6 +23,7 @@ export const getPoolInfo = async (token) => {
             item.quoteToken.symbol == 'SOL') 
         if(pools && pools.length > 0) {
             let validPool = pools[0]
+
             if(validPool.baseToken) {
                 tokenName = validPool.baseToken.name
                 tokenSymbol = validPool.baseToken.symbol
@@ -31,6 +33,15 @@ export const getPoolInfo = async (token) => {
             pairAddress = validPool.pairAddress
             pairCreatedAt = validPool.pairCreatedAt
             pairLifeTimeMins = Math.floor((Date.now() - pairCreatedAt) / 60000)
+            if(pairLifeTimeMins < 60) {
+                pairAgeLabel = pairLifeTimeMins + ' mins ago'
+            }
+            else if(pairLifeTimeMins < 1440) {
+                pairAgeLabel = Math.floor(pairLifeTimeMins / 60) + ' hours ago'
+            }
+            else {
+                pairAgeLabel = Math.floor(pairLifeTimeMins / 1440) + ' days ago'
+            }
 
             if(validPool.url) dexUrl = validPool.url
             if(validPool.info && validPool.info.websites && validPool.info.websites.length > 0) {
@@ -46,6 +57,16 @@ export const getPoolInfo = async (token) => {
     } 
 
     if(pairAddress == '') return {}
+    
+    query = `https://public-api.birdeye.so/defi/token_overview?address=${token}`
+    response = await axios.get(query, {
+        headers: {
+            'accept': 'application/json',
+            'x-chain': 'solana',
+            'X-API-KEY': process.env.BIRDEYE_API_KEY
+        }
+    })
+    let logoURI = response.data.data.logoURI
     
     // let initLiquiditySol = 0
     // query = `https://public-api.birdeye.so/defi/txs/pair?address=${pairAddress}&offset=0&limit=1&tx_type=add&sort_type=desc`
@@ -74,10 +95,12 @@ export const getPoolInfo = async (token) => {
         pairAddress,
         pairCreatedAt,
         pairLifeTimeMins,
+        pairAgeLabel,
         dexUrl,
         webSiteUrl,
         telegramUrl,
         twitterUrl,
+        logoURI
         // initLiquiditySol
     }
 }

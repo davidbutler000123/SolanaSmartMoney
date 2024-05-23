@@ -10,6 +10,8 @@ import cors from 'cors';
 import morgan from 'morgan';
 import colors from 'colors';
 
+import * as bot from './bot.js'
+
 import { guard, newToken } from './utils/auth';
 
 require('./subscribe_txs_token')

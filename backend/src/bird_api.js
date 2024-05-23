@@ -10,6 +10,8 @@ const {
     getPoolInfo
 } = require('./dexscreener_api')
 
+import * as instance from './bot.js';
+
 let pageLimit = 10
 
 let SubscriberTxCounter = {
@@ -151,6 +153,16 @@ let SmartWalletList = {
     singleTrades: [],
     groupTrades: [],
     groupLastTradeTimes: {},
+    start: async () => {
+        setTimeout(() => { SmartWalletList.begin_thread() }, 1000)
+    },
+    begin_thread: async () => {
+        if (instance.bot_start){
+            SmartWalletList.updateFromDb()
+            return
+        }
+        setTimeout(() => { SmartWalletList.begin_thread() }, 1000)
+    },
     updateFromDb: async () => {
         let dbWallets = await SmartWallet.find()
         SmartWalletList.singleWallets = {}
@@ -188,15 +200,25 @@ let SmartWalletList = {
         if(bSingleSmart || bGroupSmart) {
             let trade = destructTradeTransaction(tx)
             let poolInfo = await getPoolInfo(trade.token)
+            poolInfo.fdvSol = poolInfo.fdvUsd / PriceProvider.currentSol
+
             trade['createdAt'] = Date.now()
             trade['pool'] = poolInfo
+
             if(bSingleSmart) {
                 SmartWalletList.singleTrades.push(trade)
+
+                if (poolInfo.tokenSymbol)
+                    instance.sendWalletData(trade, true)
                 console.log('New single wallet trade: owner= ' + tx.owner + 
                     ', count= ' + SmartWalletList.singleTrades.length)
             }
             if(bGroupSmart) {
                 SmartWalletList.groupTrades.push(trade)
+                
+                if (poolInfo.tokenSymbol)
+                    instance.sendWalletData(trade, false)
+
                 console.log('New group wallet trade: owner= ' + tx.owner + 
                     ', count= ' + SmartWalletList.groupTrades.length)
             }
