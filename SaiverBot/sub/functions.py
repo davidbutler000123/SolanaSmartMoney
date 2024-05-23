@@ -16,6 +16,29 @@ import time
 from rich.progress import track
 import enlighten
 
+import httpx
+
+from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
+
+import time
+import math
+
+def get_time_now():    
+
+    now = datetime.now()    
+    cur_time = datetime.utcfromtimestamp(now.timestamp()).strftime('%Y-%m-%d %H:%M:%S') # 2024-05-16 10:36:21
+
+    # return math.ceil(now.timestamp())
+    return cur_time
+    
+def get_unixtime(unixtime):
+    
+    second = unixtime / 1000
+    # another_time = datetime.fromtimestamp(second)
+    another_time = time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.localtime(second)) # Thu, 16 May 2024 18:47:14 +0000
+
+    return another_time
+
 # Function to calculate the timestamps for now and 10 days from now
 def get_time_range(interval):
 
@@ -483,3 +506,222 @@ def fetch_token_history(address, fetchUntil):
         except:
             print(f"[fetch_token_history] -> Exception err")
             time.sleep(2)
+
+
+# Alert Bot Function
+
+def find_AlertingTokens():
+
+    url = f"{d.SERVER_URL}findAlertingTokens?buyTxns={d.BUY_TXS}&holders={d.TOKEN_HOLDERS}"
+    
+    count = 0
+    while True:
+
+        try:
+            response = requests.get(url)
+
+            # "result": 0,
+            # "count": 1,
+            # "token": {
+            #     "address": "ALXzL9Qbg5tkvTYcq1Yz1HHeyQrDVt25C5ZCVpc7yZX8",
+            #     "name": "mr west's ",
+            #     "symbol": "YE",
+            #     "logoURI": "https://img.fotofolio.xyz/?url=https%3A%2F%2Fbafkreie5hohqcvijdsvm7tw3jr2dd5uuus6z7rtq2v37uw27kdcnjo4tzm.ipfs.nftstorage.link",
+            #     "dexUrl": "https://dexscreener.com/solana/7xs43e91sfswgaf6qqebvlv8vhbkuqjjravwf7yzcfqy",
+            #     "webSiteUrl": "",
+            #     "telegramUrl": "",
+            #     "twitterUrl": "",
+            #     "buy": 18,
+            #     "poolCreated": 1715967505838,
+            #     "pairLifeTimeMins": 29,
+            #     "initLiquidityUsd": 2349.4964817403556,
+            #     "initLiquiditySol": 14,
+            #     "fdvUsd": 1293,
+            #     "fdvSol": 7.70462954113096,
+            #     "liquidityUsd": 0.176547878485061,
+            #     "liquiditySol": 0.001052,
+            #     "holder_count": 24
+            # }
+            
+            if response.status_code == 200:
+                json_response = response.json()  # Get the JSON response
+
+                items = json_response
+                # print(len(items))
+
+                # processed_data = []
+                token_data = {}
+
+                if items['count'] > 0: 
+
+                    item = json_response.get('token', {})
+
+                    token_data = {
+                        "address":item['address'],
+                        "name":item['name'],
+                        "symbol":item['symbol'],
+                        "logoURI":item['logoURI'],
+                        "dexUrl":item['dexUrl'],
+                        "webSiteUrl":item['webSiteUrl'],
+                        "telegramUrl":item['telegramUrl'],
+                        "twitterUrl":item['twitterUrl'],
+                        "buyTxs": item['buy'],
+                        "holders": item['holder_count'],
+                        "poolCreatedTime": item['poolCreated'],
+                        "pairTimeInfo": item['pairLifeTimeMins'],
+                        "initLiquiditySol": item['initLiquiditySol'],
+                        "initLiquidityUsd": item['initLiquidityUsd'],
+                        "fdvSol": item['fdvSol'],
+                        "fdvUsd": item['fdvUsd'],
+                        "liquiditySol": item['liquiditySol'],
+                        "liquidityUsd": item['liquidityUsd']
+                        }
+                
+                # processed_data.append(token_data)
+
+                return token_data
+
+            else:
+                print(f"{c.RED}[find_AlertingTokens] Failed to fetch data. Status code: {response.status_code}{c.RESET}")
+                
+        except:
+            print(f"{c.RED}[find_AlertingTokens] exception err{c.RESET}")
+        
+        if count > 3:
+            print(f"{c.RED}[find_AlertingTokens] count err{c.RESET}")            
+            return {}
+        
+        count += 1
+
+        time.sleep(2)
+
+
+def send_discord_alert(message: str):
+    DISCORD_WEBHOOK_URL = d.DISCORD_WEBHOOK
+    try:
+        httpx.post(DISCORD_WEBHOOK_URL, json={'content': f'{message}'})
+    except:
+        pass
+
+def send_telegram_message(message: str):
+    
+    TELEGRAM_BOT_TOKEN = d.BOT_TOKEN
+    TELEGRAM_CHAT_ID = d.CHAT_ID
+    TELEGRAM_URL = "https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendMessage"
+    PAYLOAD = {
+        'chat_id': TELEGRAM_CHAT_ID,
+        'text': message,
+        'parse_mode': 'HTML'
+    }
+    try:
+        httpx.post(url=TELEGRAM_URL, data=PAYLOAD)
+    except:
+        print(f'send telegram alert error!')
+        pass
+
+def send_telegram_photo(url: str):
+    
+    TELEGRAM_BOT_TOKEN = d.BOT_TOKEN
+    TELEGRAM_CHAT_ID = d.CHAT_ID
+
+    with open(url, 'rb') as photo:
+    # Prepare the POST request payload
+        files = {'photo': photo}
+        data = {'chat_id': TELEGRAM_CHAT_ID}       
+
+        TELEGRAM_URL = "https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendPhoto"
+        PAYLOAD = {
+            'chat_id': TELEGRAM_CHAT_ID,
+            'photo': photo,
+        }
+
+        try:
+            # httpx.post(url=TELEGRAM_URL, data=PAYLOAD)
+             # Send the HTTP POST request to the Telegram API
+            response = requests.post(url=TELEGRAM_URL, files=files, data=data)
+        except:
+            print(f'send telegram alert error!')
+            pass
+
+def get_amount(inValue):
+
+    result_0 = round(inValue, 1)
+    result_K = round(float(inValue / 1000), 1)
+    result_M = round(float(inValue / (1000 * 1000)), 1)
+    
+    if result_M > 1 :
+        result = f'{result_M}M'
+    elif result_K > 1:
+        result = f'{result_K}K'
+    else:
+        result = f'{result_0}'
+
+    return result
+
+async def send_telegram_alert(bot_token, chat_id, token_info: str):
+
+
+    print(token_info)
+
+    address = token_info['address']
+    name = token_info['name']
+    symbol = token_info['symbol']
+    logoURI = token_info['logoURI']
+    dexUrl = token_info['dexUrl']
+    webSiteUrl = token_info['webSiteUrl']
+    telegramUrl = token_info['telegramUrl']
+    twitterUrl = token_info['twitterUrl']
+    buy_txs = token_info['buyTxs']
+    holders = token_info['holders']
+    pool_create_time = token_info['poolCreatedTime']
+    pair_timeInfo = token_info['pairTimeInfo']
+    initLiquiditySol = get_amount(token_info['initLiquiditySol'])
+    initLiquidityUsd = get_amount(token_info['initLiquidityUsd'])
+    fdvSol = get_amount(token_info['fdvSol'])
+    fdvUsd = get_amount(token_info['fdvUsd'])
+    liquiditySol = get_amount(token_info['liquiditySol'])
+    liquidityUsd = get_amount(token_info['liquidityUsd'])
+
+    if token_info['fdvSol'] == 0:
+        lp_FDV = 0.0
+    else:
+        lp_FDV = round(token_info['liquiditySol'] / token_info['fdvSol'] * 100, 1)
+
+    text_template = f'🌟 <a href="{dexUrl}">{name}</a> {symbol} triggers Alert 01 \
+\n \
+\n💵 Info  \
+\nPairs: {pair_timeInfo} mins ago \
+\nInitial LP: {initLiquiditySol} Ξ ({initLiquidityUsd}) \
+\nFDV:  {fdvSol} Ξ ({fdvUsd}) \
+\n  \
+\n💦 LP \
+\nLP: {liquiditySol} Ξ ({liquidityUsd}) \
+\nLP / FDV: {lp_FDV}% \
+\n \
+\n🧠 Metrics \
+\nBuy Tx: {buy_txs} \
+\nHolders: {holders} \
+\n \
+\n📄 CA \
+\n<code>{address}</code> \
+\n \
+\n{get_time_now()}  \
+\n \
+\n<a href="{telegramUrl}">Telegram</a> | <a href="{twitterUrl}">Twitter </a> | <a href="{webSiteUrl}">Website </a>'
+    
+    bot = Bot(token=bot_token)
+
+    # Path to the picture you want to send
+    picture_path = None #'./image/3.jpg'
+
+    if picture_path is not None:
+        # Send the picture to the channel
+        with open(picture_path, 'rb') as picture:
+            await bot.send_photo(chat_id=chat_id, photo=picture)
+    
+    if logoURI:
+        await bot.send_photo(chat_id=chat_id, photo=logoURI, caption=text_template, parse_mode='HTML')
+    else:
+        await bot.send_message(chat_id=chat_id, text=text_template, parse_mode='HTML')
+
+    
