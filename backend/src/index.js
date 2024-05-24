@@ -19,6 +19,7 @@ require('./trade_indexer')
 const txAanalyzer = require('./tx_analyzer')
 const walletMannager = require('./walletManager')
 const alchemyApi = require('./alchemy_api')
+const birdApi = require('./bird_api')
 
 const app = express();
 
@@ -185,6 +186,20 @@ app.post('/api/updateSmartWallets', (req, res) => {
   .catch(err => {
     res.send([])
   })
+})
+
+app.get('/api/tokenAlerts', (req, res) => {
+  let offset = parseInt(req.query.offset)
+  let limit = parseInt(req.query.limit)
+  let type = parseInt(req.query.type)
+  res.send(birdApi.getTokenAlerts(offset, limit, type))
+})
+
+app.get('/api/walletAlerts', (req, res) => {
+  let offset = parseInt(req.query.offset)
+  let limit = parseInt(req.query.limit)
+  let type = parseInt(req.query.type)
+  res.send(birdApi.getWalletAlerts(offset, limit, type))
 })
 
 //* END ROUTES *//

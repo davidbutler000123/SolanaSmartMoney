@@ -143,15 +143,21 @@ ${timeStr}
 <a href="${telegramUrl}">Telegram</a> | <a href="${twitterUrl}">Twitter </a>`
 
 
-	let chatid = process.env.CHAT_ID
+	// let chatid = process.env.CHAT_ID
 
-	if (logURI)
-		bot.sendPhoto(chatid, logURI, { caption: NEW_MSG, parse_mode: 'HTML', disable_web_page_preview: true }).catch((err) => {
-			console.log('\x1b[31m%s\x1b[0m', `sendPhoto Error: ${chatid} ${err.response.body.description}`);
-			console.log(tradedata)
-		});
-	else
-		sendMessageSync(chatid, NEW_MSG)
+	sessions.forEach((session, chatid) => {
+		console.log(chatid)
+		try {
+			if (logURI)
+				bot.sendPhoto(chatid, logURI, { caption: NEW_MSG, parse_mode: 'HTML', disable_web_page_preview: true }).catch((err) => {
+					console.log('\x1b[31m%s\x1b[0m', `sendPhoto Error: ${chatid} ${err.response.body.description}`);
+				});
+			else
+				sendMessageSync(chatid, NEW_MSG)
+		} catch (error) {
+			console.log(error.toString())
+		}
+	});
 }
 
 export function sendMessage(chatid, message, enableLinkPreview = true) {

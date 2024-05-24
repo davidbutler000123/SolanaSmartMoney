@@ -63,24 +63,30 @@ let PriceProvider = {
     },
     startSolQuerying: () => {
         setInterval(async function() {
-            let query = 'https://public-api.birdeye.so/defi/price?address=So11111111111111111111111111111111111111112'
-            let response = await axios.get(query, {
-                headers: {
-                    'accept': 'application/json',
-                    'x-chain': 'solana',
-                    'X-API-KEY': process.env.BIRDEYE_API_KEY
+            try {
+                let query = 'https://public-api.birdeye.so/defi/price?address=So11111111111111111111111111111111111111112'
+                let response = await axios.get(query, {
+                    headers: {
+                        'accept': 'application/json',
+                        'x-chain': 'solana',
+                        'X-API-KEY': process.env.BIRDEYE_API_KEY
+                    }
+                })
+                
+                if(response && response.data && response.data.success) {
+                    PriceProvider.currentSol = response.data.data.value
                 }
-            })
-            
-            if(response && response.data && response.data.success) {
-                PriceProvider.currentSol = response.data.data.value
+            } catch (error) {
+                console.log(error.toString())
             }
+            
         }, 10000)
     }
 }
 
 let TokenList = {
     tokens: [],
+    alerts: [],
     initFromDb: async () => {
         let dbTokens = await Token.find().map(item => item.address)
         if(dbTokens && dbTokens.length > 0) TokenList.tokens = dbTokens
@@ -143,6 +149,15 @@ let TokenList = {
         }
         token.holder_count = Object.keys(token.holders).length
         // token.holder_count = Object.values(token.holders).filter(item => item.amount > 0).length
+    },
+    pushNewAlert(alert) {
+        TokenList.alerts.push(alert)
+        TokenList.alerts.forEach((alert, index, object) => {
+            if(!checkLivePoolTime(alert.poolCreated)) {
+                // delete TokenList.alerts[index]
+                object.splice(index, 1)
+            }
+        })
     }
 }
 
@@ -201,6 +216,8 @@ let SmartWalletList = {
             let trade = destructTradeTransaction(tx)
             let poolInfo = await getPoolInfo(trade.token)
             poolInfo.fdvSol = poolInfo.fdvUsd / PriceProvider.currentSol
+            poolInfo.liquidityUsd = poolInfo.liquiditySol * PriceProvider.currentSol
+            poolInfo.initLiquidityUsd = poolInfo.initLiquiditySol * PriceProvider.currentSol
 
             trade['createdAt'] = Date.now()
             trade['pool'] = poolInfo
@@ -229,13 +246,19 @@ let SmartWalletList = {
 
 async function askPriceHistory(address, address_type, type, time_from, time_to) {
     let query = `https://public-api.birdeye.so/defi/history_price?address=${address}&address_type=${address_type}&type=${type}&time_from=${time_from}&time_to=${time_to}`
-    let response = await axios.get(query, {
-        headers: {
-            'accept': 'application/json',
-            'x-chain': 'solana',
-            'X-API-KEY': process.env.BIRDEYE_API_KEY
-        }
-    })
+    let response = []
+    try {
+        response = await axios.get(query, {
+            headers: {
+                'accept': 'application/json',
+                'x-chain': 'solana',
+                'X-API-KEY': process.env.BIRDEYE_API_KEY
+            }
+        })
+    } catch (error) {
+        console.log(error.toString())
+    }
+    
     let prices = []
     if(response && response.data && response.data.success) {
         prices = response.data.data.items
@@ -324,13 +347,18 @@ function fetchLiquidity(tx) {
 async function getTokenTrades(token, offset, limit) 
 {
     let query = `https://public-api.birdeye.so/defi/txs/token?address=${token}&offset=${offset}&limit=${limit}&tx_type=all`
-    let response = await axios.get(query, {
-        headers: {
-            'accept': 'application/json',
-            'x-chain': 'solana',
-            'X-API-KEY': process.env.BIRDEYE_API_KEY
-        }
-    })
+    let response = {}
+    try {
+        response = await axios.get(query, {
+            headers: {
+                'accept': 'application/json',
+                'x-chain': 'solana',
+                'X-API-KEY': process.env.BIRDEYE_API_KEY
+            }
+        })
+    } catch (error) {
+        console.log(error.toString())
+    }    
     if(!response.data || !response.data.data || !response.data.data.items || response.data.data.items.length == 0) 
         return []
     
@@ -340,13 +368,19 @@ async function getTokenTrades(token, offset, limit)
 async function getPairTrades(pair, offset, limit, tx_type) 
 {
     let query = `https://public-api.birdeye.so/defi/txs/pair?address=${pair}&offset=${offset}&limit=${limit}&tx_type=${tx_type}&sort_type=desc`
-    let response = await axios.get(query, {
-        headers: {
-            'accept': 'application/json',
-            'x-chain': 'solana',
-            'X-API-KEY': process.env.BIRDEYE_API_KEY
-        }
-    })
+    let response = {}
+    try {
+        response = await axios.get(query, {
+            headers: {
+                'accept': 'application/json',
+                'x-chain': 'solana',
+                'X-API-KEY': process.env.BIRDEYE_API_KEY
+            }
+        })
+    } catch (error) {
+        console.log(error.toString())
+    }
+    
     if(!response.data || !response.data.data || !response.data.data.items || response.data.data.items.length == 0) 
         return []
     
@@ -355,13 +389,18 @@ async function getPairTrades(pair, offset, limit, tx_type)
 
 async function tokenCreationInfo(address) {
     let query = `https://public-api.birdeye.so/defi/token_creation_info?address=${address}`
-    let response = await axios.get(query, {
-        headers: {
-            'accept': 'application/json',
-            'x-chain': 'solana',
-            'X-API-KEY': process.env.BIRDEYE_API_KEY
-        }
-    })
+    let response = {}
+    try {
+        response = await axios.get(query, {
+            headers: {
+                'accept': 'application/json',
+                'x-chain': 'solana',
+                'X-API-KEY': process.env.BIRDEYE_API_KEY
+            }
+        })
+    } catch (error) {
+        console.log(error.toString())
+    }    
     let txHash = ''
     let owner = ''
     if(response.data && response.data.data && response.data.data.txHash) {
@@ -586,7 +625,14 @@ async function updateTokenList(tx) {
 
     let nowTime = Date.now()
     let query = `https://api.dexscreener.io/latest/dex/tokens/${token_addr}`
-    let response = await axios.get(query)
+    let response = {}
+    try {
+        response = await axios.get(query)
+    }
+    catch(error) {
+        console.log(error.toString())
+    }
+    
     if(!response.data || !response.data.pairs || response.data.pairs.length == 0) {
         TokenList.updateTokenPoolInfo(token_addr, nowTime)
         return
@@ -616,6 +662,59 @@ async function updateTokenList(tx) {
     t.save()
 }
 
+function getTokenAlerts(offset, limit, type) {
+    let alerts = []
+    if(limit < 1 || TokenList.alerts.length <= offset ||
+        TokenList.alerts.length == 0 ||
+        offset < 0
+    ) {
+        return {
+            result: 0,
+            total: 0,
+            alerts: []
+        }
+    }    
+    for(let i = TokenList.alerts.length - offset - 1; i >= 0; i--) {
+        alerts.push(TokenList.alerts[i])
+        if(alerts.length >= limit) break
+    }
+    return {
+        result: 0,
+        total: TokenList.alerts.length,
+        alerts: alerts
+    }
+}
+
+function getWalletAlerts(offset, limit, type) {
+    let trades = []
+    let targetTrades = []
+    if(type == 0) {
+        targetTrades = SmartWalletList.singleTrades
+    }
+    else {
+        targetTrades = SmartWalletList.groupTrades
+    }
+    if(limit < 1 || targetTrades.length <= offset ||
+        targetTrades.length == 0 ||
+        offset < 0
+    ) {
+        return {
+            result: 0,
+            total: 0,
+            alerts: []
+        }
+    }    
+    for(let i = targetTrades.length - offset - 1; i >= 0; i--) {
+        trades.push(targetTrades[i])
+        if(trades.length >= limit) break
+    }
+    return {
+        result: 0,
+        total: targetTrades.length,
+        alerts: trades
+    }
+}
+
 PriceProvider.startSolQuerying()
 
 module.exports = {
@@ -630,5 +729,7 @@ module.exports = {
     tokenCreationInfo,
     saveTokenTxnToDB,
     savePairTxnToDB,
-    updateTokenList
+    updateTokenList,
+    getTokenAlerts,
+    getWalletAlerts
 }

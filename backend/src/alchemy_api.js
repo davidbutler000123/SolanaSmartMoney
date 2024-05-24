@@ -15,16 +15,17 @@ let CheckTokenAuditThread = {
 }
 
 async function askTotalSupply(txHash) {
-    let query = "https://solana-mainnet.g.alchemy.com/v2/" + process.env.ALCHEMY_API_KEY
-    let response = await axios.post(query, {
-        'jsonrpc': '2.0',
-        'id': 1,
-        'method': 'getTransaction',
-        'params': [txHash, {encoding: "json", maxSupportedTransactionVersion:0}]
-    })
-
     let totalSupply = 0
+
     try {
+        let query = "https://solana-mainnet.g.alchemy.com/v2/" + process.env.ALCHEMY_API_KEY
+        let response = await axios.post(query, {
+            'jsonrpc': '2.0',
+            'id': 1,
+            'method': 'getTransaction',
+            'params': [txHash, {encoding: "json", maxSupportedTransactionVersion:0}]
+        })
+
         response.data.result.meta.postTokenBalances.forEach(element => {
             totalSupply += element.uiTokenAmount.uiAmount
         });
@@ -45,12 +46,17 @@ async function checkRenouncedAndLpburned(address, beforeTxnHash) {
 
     console.log(filtering)
 
-    let response = await axios.post(query, {
-        'jsonrpc': '2.0',
-        'id': 1,
-        'method': 'getSignaturesForAddress',
-        'params': [owner, filtering]
-    })
+    let response = ''
+    try {
+        response = await axios.post(query, {
+            'jsonrpc': '2.0',
+            'id': 1,
+            'method': 'getSignaturesForAddress',
+            'params': [owner, filtering]
+        })
+    } catch (error) {
+        console.log(error.toString())
+    }        
     if(!response.data || !response.data.result || response.data.result.length == 0) 
     {
         return {
@@ -65,15 +71,21 @@ async function checkRenouncedAndLpburned(address, beforeTxnHash) {
         let signature = response.data.result[k].signature
         console.log(`getTransaction: ${k+1} / ${response.data.result.length} -> ${signature}`)
         CheckTokenAuditThread.progress = k + 1
-        let detail_response = await axios.post(query, {
-            'jsonrpc': '2.0',
-            'id': 1,
-            'method': 'getTransaction',
-            'params': [signature, {encoding: "json", maxSupportedTransactionVersion:0}]
-        })
-
-        const FREEZE_AUTHORITY_DATA = 'bkGbjLJNggwBSCWTJk5RL3SQRCHJXWrqvPzW9447wtQtnT1'
-        let freezeInstructions = detail_response.data.result.transaction.message.instructions.filter(item => item.data == FREEZE_AUTHORITY_DATA)
+        let freezeInstructions = []
+        try {
+            let detail_response = await axios.post(query, {
+                'jsonrpc': '2.0',
+                'id': 1,
+                'method': 'getTransaction',
+                'params': [signature, {encoding: "json", maxSupportedTransactionVersion:0}]
+            })
+    
+            const FREEZE_AUTHORITY_DATA = 'bkGbjLJNggwBSCWTJk5RL3SQRCHJXWrqvPzW9447wtQtnT1'
+            freezeInstructions = detail_response.data.result.transaction.message.instructions.filter(item => item.data == FREEZE_AUTHORITY_DATA)
+            
+        } catch (error) {
+            console.log(error.toString())
+        }
         if(freezeInstructions && freezeInstructions.length > 0) {
             renouncedTime = detail_response.data.result.blockTime
             console.log('freezeAccount found: tx = ' + signature + ', renouncedTime = ' + renouncedTime)
@@ -114,24 +126,34 @@ async function checkRenouncedAndLpburned(address, beforeTxnHash) {
 }
 
 async function fetchTxSignsForAddress(address) {
+    let response = []
     let query = "https://solana-mainnet.g.alchemy.com/v2/" + process.env.ALCHEMY_API_KEY
-    let response = await axios.post(query, {
-        'jsonrpc': '2.0',
-        'id': 1,
-        'method': 'getSignaturesForAddress',
-        'params': [address, {encoding: "json", maxSupportedTransactionVersion:0}]
-    })
+    try {
+        response = await axios.post(query, {
+            'jsonrpc': '2.0',
+            'id': 1,
+            'method': 'getSignaturesForAddress',
+            'params': [address, {encoding: "json", maxSupportedTransactionVersion:0}]
+        })        
+    } catch (error) {
+        console.log(error.toString())
+    }    
     return response
 }
 
 async function fetchTransaction(txHash) {
+    let response = {}
     let query = "https://solana-mainnet.g.alchemy.com/v2/" + process.env.ALCHEMY_API_KEY
-    let response = await axios.post(query, {
-        'jsonrpc': '2.0',
-        'id': 1,
-        'method': 'getTransaction',
-        'params': [txHash, {encoding: "json", maxSupportedTransactionVersion:0}]
-    })
+    try {
+        response = await axios.post(query, {
+            'jsonrpc': '2.0',
+            'id': 1,
+            'method': 'getTransaction',
+            'params': [txHash, {encoding: "json", maxSupportedTransactionVersion:0}]
+        })
+    } catch (error) {
+        console.log(error.toString())
+    }    
     return response
 }
 

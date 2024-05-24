@@ -27,7 +27,13 @@ let fetchedLastTxn = {
 async function askPriceFromDexScreen(token, resolve) {
     let query = `https://api.dexscreener.io/latest/dex/tokens/${token}`
 
-    let response = await axios.get(query)
+    let response = {}
+    try {
+        response = await axios.get(query)
+    } catch (error) {
+        console.log(error.toString())
+    }
+
     if(!response.data || !response.data.pairs || response.data.pairs.length == 0) {
         resolve({
             status: 1,
@@ -905,13 +911,19 @@ async function findAlertingTokens(buyTxns, holders) {
             let query = ''
             let response = null
             query = `https://public-api.birdeye.so/defi/token_overview?address=${token.address}`
-            response = await axios.get(query, {
-                headers: {
-                    'accept': 'application/json',
-                    'x-chain': 'solana',
-                    'X-API-KEY': process.env.BIRDEYE_API_KEY
-                }
-            })
+            response = {}
+            try {
+                response = await axios.get(query, {
+                    headers: {
+                        'accept': 'application/json',
+                        'x-chain': 'solana',
+                        'X-API-KEY': process.env.BIRDEYE_API_KEY
+                    }
+                })
+            } catch (error) {
+                console.log(error.toString())
+            }
+            
             let liquiditySol = response.data.data.liquidity
             let holder_count = response.data.data.holder
             let logoURI = response.data.data.logoURI
@@ -923,12 +935,18 @@ async function findAlertingTokens(buyTxns, holders) {
                 return
             }
             query = 'https://api.dexscreener.io/latest/dex/tokens/' + token.address
-            response = await axios.get(query)
+            response = {}
+            try {
+                response = await axios.get(query)
+            } catch (error) {
+                console.log(error.toString())                
+            }
             let tokenName = ''
             let tokenSymbol = ''
             let fdvUsd = 0
             let pairAddress = ''
             let dexUrl = ''
+            let imageUrl = ''
             let webSiteUrl = ''
             let telegramUrl = ''
             let twitterUrl = ''
@@ -947,6 +965,7 @@ async function findAlertingTokens(buyTxns, holders) {
                     fdvUsd = validPool.fdv
                     pairAddress =validPool.pairAddress
                     if(validPool.url) dexUrl = validPool.url
+                    if(validPool.info && validPool.info.imageUrl) imageUrl = validPool.info.imageUrl
                     if(validPool.info && validPool.info.websites && validPool.info.websites.length > 0) {
                         webSiteUrl = validPool.info.websites[0].url
                     }
@@ -960,13 +979,19 @@ async function findAlertingTokens(buyTxns, holders) {
             }            
             let initLiquiditySol = 0
             query = `https://public-api.birdeye.so/defi/txs/pair?address=${pairAddress}&offset=0&limit=1&tx_type=add&sort_type=desc`
-            response = await axios.get(query, {
-                headers: {
-                    'accept': 'application/json',
-                    'x-chain': 'solana',
-                    'X-API-KEY': process.env.BIRDEYE_API_KEY
-                }
-            })
+            response = {}
+            try {
+                response = await axios.get(query, {
+                    headers: {
+                        'accept': 'application/json',
+                        'x-chain': 'solana',
+                        'X-API-KEY': process.env.BIRDEYE_API_KEY
+                    }
+                })
+            } catch (error) {
+                console.log(error.toString())
+            }
+            
             if(response.data && response.data.data && response.data.data.items && response.data.data.items.length > 0) {
                 let trade = response.data.data.items[0]
                 if(trade.tokens && trade.tokens.length > 0 && trade.tokens[0].symbol == 'SOL') {
@@ -981,29 +1006,41 @@ async function findAlertingTokens(buyTxns, holders) {
             await askPriceHistory(PriceProvider.sol_address, 'token', '1m', pubTime, targetTime)
             let solPriceInit = PriceProvider.querySol(pubTime)
             let solPriceNow = PriceProvider.querySol(targetTime)
+            let tokenAlert = {
+                address: token.address,
+                name: tokenName,
+                symbol: tokenSymbol,
+                logoURI: logoURI,
+                dexUrl: dexUrl,
+                imageUrl: imageUrl,
+                webSiteUrl: webSiteUrl,
+                telegramUrl: telegramUrl,
+                twitterUrl: twitterUrl,
+                buy: token.buy,
+                poolCreated: token.poolCreated,
+                mintDisabled: false,
+                lpBurned: true,
+                top10: false,
+                pairLifeTimeMins: Math.floor((Date.now() - token.poolCreated) / 60000),
+                initLiquidityUsd: initLiquiditySol * solPriceInit,
+                initLiquiditySol: initLiquiditySol,
+                fdvUsd: fdvUsd,
+                fdvSol: fdvUsd / solPriceNow,
+                liquidityUsd: liquiditySol * solPriceNow,
+                liquiditySol: liquiditySol,
+                fdvAthSol: 6,
+                fdvAthUsd: 34000,
+                fdvNowSol: 7,
+                fdvNowUsd: 38000,
+                roiAth: 1.8,
+                roiNow: 1.2,
+                holder_count: holder_count ? holder_count : token.holder_count
+            }
+            TokenList.pushNewAlert(tokenAlert)
             resolve({
                 result: 0,
                 count: 1,
-                token:{
-                    address: token.address,
-                    name: tokenName,
-                    symbol: tokenSymbol,
-                    logoURI: logoURI,
-                    dexUrl: dexUrl,
-                    webSiteUrl: webSiteUrl,
-                    telegramUrl: telegramUrl,
-                    twitterUrl: twitterUrl,
-                    buy: token.buy,
-                    poolCreated: token.poolCreated,
-                    pairLifeTimeMins: Math.floor((Date.now() - token.poolCreated) / 60000),
-                    initLiquidityUsd: initLiquiditySol * solPriceInit,
-                    initLiquiditySol: initLiquiditySol,
-                    fdvUsd: fdvUsd,
-                    fdvSol: fdvUsd / solPriceNow,
-                    liquidityUsd: liquiditySol * solPriceNow,
-                    liquiditySol: liquiditySol,                    
-                    holder_count: holder_count ? holder_count : token.holder_count
-                }                
+                token: tokenAlert             
             })
         } catch (error) {
             reject(error.toString())

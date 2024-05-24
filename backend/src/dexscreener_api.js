@@ -2,7 +2,12 @@ const axios = require('axios');
 
 export const getPoolInfo = async (token) => {
     let query = 'https://api.dexscreener.io/latest/dex/tokens/' + token
-    let response = await axios.get(query)
+    let response = {}
+    try {
+        response = await axios.get(query)
+    } catch (error) {
+        console.log(error.toString())
+    }
 
     let tokenName = ''
     let tokenSymbol = ''
@@ -59,6 +64,23 @@ export const getPoolInfo = async (token) => {
     if(pairAddress == '') return {}
     
     query = `https://public-api.birdeye.so/defi/token_overview?address=${token}`
+    try {
+        response = await axios.get(query, {
+            headers: {
+                'accept': 'application/json',
+                'x-chain': 'solana',
+                'X-API-KEY': process.env.BIRDEYE_API_KEY
+            }
+        })
+    } catch (error) {
+        console.log(error.toString())
+    }
+    
+    let logoURI = ''
+    if(response && response.data && response.data.data && response.data.data.logoURI) logoURI = response.data.data.logoURI
+    
+    let initLiquiditySol = 0
+    query = `https://public-api.birdeye.so/defi/txs/pair?address=${pairAddress}&offset=0&limit=1&tx_type=add&sort_type=desc`
     response = await axios.get(query, {
         headers: {
             'accept': 'application/json',
@@ -66,32 +88,28 @@ export const getPoolInfo = async (token) => {
             'X-API-KEY': process.env.BIRDEYE_API_KEY
         }
     })
-    let logoURI = response.data.data.logoURI
-    
-    // let initLiquiditySol = 0
-    // query = `https://public-api.birdeye.so/defi/txs/pair?address=${pairAddress}&offset=0&limit=1&tx_type=add&sort_type=desc`
-    // response = await axios.get(query, {
-    //     headers: {
-    //         'accept': 'application/json',
-    //         'x-chain': 'solana',
-    //         'X-API-KEY': process.env.BIRDEYE_API_KEY
-    //     }
-    // })
-    // if(response.data && response.data.data && response.data.data.items && response.data.data.items.length > 0) {
-    //     let trade = response.data.data.items[0]
-    //     if(trade.tokens && trade.tokens.length > 0 && trade.tokens[0].symbol == 'SOL') {
-    //         initLiquiditySol = trade.tokens[0].amount / (10 ** trade.tokens[0].decimals)
-    //     }
-    //     else if(trade.tokens && trade.tokens.length > 1 && trade.tokens[1].symbol == 'SOL') {
-    //         initLiquiditySol = trade.tokens[1].amount / (10 ** trade.tokens[1].decimals)
-    //     }
-    // }
+    if(response.data && response.data.data && response.data.data.items && response.data.data.items.length > 0) {
+        let trade = response.data.data.items[0]
+        if(trade.tokens && trade.tokens.length > 0 && trade.tokens[0].symbol == 'SOL') {
+            initLiquiditySol = trade.tokens[0].amount / (10 ** trade.tokens[0].decimals)
+        }
+        else if(trade.tokens && trade.tokens.length > 1 && trade.tokens[1].symbol == 'SOL') {
+            initLiquiditySol = trade.tokens[1].amount / (10 ** trade.tokens[1].decimals)
+        }
+    }
     
     return {
         tokenName,
         tokenSymbol,
         fdvUsd,        
         liquiditySol,
+        initLiquiditySol,
+        fdvAthSol: 6,
+        fdvAthUsd: 34000,
+        fdvNowSol: 7,
+        fdvNowUsd: 38000,
+        roiAth: 1.8,
+        roiNow: 1.2,
         pairAddress,
         pairCreatedAt,
         pairLifeTimeMins,
@@ -101,6 +119,5 @@ export const getPoolInfo = async (token) => {
         telegramUrl,
         twitterUrl,
         logoURI
-        // initLiquiditySol
     }
 }
