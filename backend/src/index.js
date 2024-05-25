@@ -35,6 +35,23 @@ app.use(xss()); //? Prevent Cross Site Scripting
 app.use(hpp()); //? Prevent HTTP param pollution
 
 app.use(morgan('dev')); //? Server Logger
+
+// const https = require('https');
+// const fs = require('fs');
+// const path = require('path');
+// const privateKeyPath = path.resolve(__dirname, 'privatekey.pem');
+// const certificatePath = path.resolve(__dirname, 'certificate.pem');
+// const privateKey = fs.readFileSync(privateKeyPath, 'utf8');
+// const certificate = fs.readFileSync(certificatePath, 'utf8');
+// const httpsServer = https.createServer({
+//   key: privateKey,
+//   cert: certificate,
+// }, app);
+// const PORT = 443; // Default port for HTTPS
+// httpsServer.listen(PORT, () => {
+//   console.log(`HTTPS Server is running on port ${PORT}`);
+// });
+
 //* END CONFIG *//
 
 //* ROUTES *//
