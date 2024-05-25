@@ -130,3 +130,4 @@ dist
 .pnp.*
 /SaiverBot/output
 /SaiverBot/__pycache__
+/backend/yarn.lock
