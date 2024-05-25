@@ -22,9 +22,8 @@ import PaginationCustom from './paginationCustom';
 
 const ITEMS_PER_PAGE = 10;
 
-// const serverUrl = 'http://95.217.146.177:5000';
+const serverUrl = 'http://95.217.146.177:5000';
 // const serverUrl = 'https://95.217.146.177:5000';
-const serverUrl = 'http://localhost:5000';
 
 const TableComponentSmart: React.FC<TableProps> = ({ updateType }) => {
 	const [currentPage, setCurrentPage] = useState<number>(1);
