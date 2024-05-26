@@ -7,6 +7,7 @@ import Vectorsol from '@/assets/Vectorsol.svg';
 import Vectorclock from '@/assets/Vectorclock.svg';
 import Vectordex from '@/assets/Vectordex.svg';
 import Vectorcheck from '@/assets/Vectorcheck.svg';
+import VectorUncheck from '@/assets/VectorUncheck.svg';
 import CopyToClipboard from '@/components/ui/snippet';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,7 +21,7 @@ import {
 import axios from 'axios';
 import PaginationCustom from './paginationCustom';
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 1;
 
 const serverUrl = 'http://95.217.146.177:5000';
 // const serverUrl = 'https://95.217.146.177:5000';
@@ -32,14 +33,11 @@ const TableComponent: React.FC<TableProps> = ({ updateType }) => {
 	const currentTyperef = useRef('0');
 	const [currentItems, setCurrentItems] = useState<AlertItem[]>([]);
 
-	// useEffect(() => {
-	// 	console.log('init alert..');
-	// 	getServerData();
-	// 	// const intervalId = setInterval(getServerData, 1000);
+	useEffect(() => {
+		const intervalId = setInterval(getServerData, 1000);
 
-	// 	// Clear the interval when the component unmounts
-	// 	// return () => clearInterval(intervalId);
-	// }, []);
+		return () => clearInterval(intervalId);
+	}, []);
 
 	useEffect(() => {
 		console.log('update', '11');
@@ -133,7 +131,7 @@ const TableComponent: React.FC<TableProps> = ({ updateType }) => {
 	return (
 		<div className='w-full  bg-white dark:bg-black '>
 			<div className='overflow-x-auto'>
-				<table className='w-full divide-y divide-gray-200 whitespace-nowrap'>
+				<table className='w-full divide-y divide-[#4C4C4C] whitespace-nowrap'>
 					<thead className='bg-white bg-opacity-10'>
 						<tr className='text-xs font-medium '>
 							<th className='px-6 py-3 text-left text-xs font-medium text-black dark:text-white uppercase tracking-wider'>
@@ -171,7 +169,7 @@ const TableComponent: React.FC<TableProps> = ({ updateType }) => {
 							</th>
 						</tr>
 					</thead>
-					<tbody className='bg-white dark:bg-black divide-y text-white divide-gray-200'>
+					<tbody className='bg-white dark:bg-black divide-y text-white divide-[#4C4C4C]'>
 						{currentItems.map((item, index) => (
 							<tr key={index} className='text-black dark:text-white'>
 								<td className='pl-4 pr-12 py-4 '>
@@ -209,7 +207,7 @@ const TableComponent: React.FC<TableProps> = ({ updateType }) => {
 											{item.audit[0] === true ? (
 												<Vectorcheck fill='white' width={14} height={14} />
 											) : (
-												<span className='bg-red-500 h-[14px]'></span>
+												<VectorUncheck fill='white' width={14} height={14} />
 											)}
 											<span className='whitespace-pre-wrap  text-center'>
 												Mint Disabled
@@ -219,7 +217,7 @@ const TableComponent: React.FC<TableProps> = ({ updateType }) => {
 											{item.audit[1] === true ? (
 												<Vectorcheck fill='white' width={14} height={14} />
 											) : (
-												<span className='bg-red-500 h-[14px]'></span>
+												<VectorUncheck fill='white' width={14} height={14} />
 											)}
 											<span className='whitespace-pre-wrap text-center'>
 												LP Burned
@@ -229,7 +227,7 @@ const TableComponent: React.FC<TableProps> = ({ updateType }) => {
 											{item.audit[2] === true ? (
 												<Vectorcheck fill='white' width={14} height={14} />
 											) : (
-												<span className='bg-red-500 h-[14px]'></span>
+												<VectorUncheck fill='white' width={14} height={14} />
 											)}
 											<span className='whitespace-pre-wrap text-center'>
 												Top 10-20%

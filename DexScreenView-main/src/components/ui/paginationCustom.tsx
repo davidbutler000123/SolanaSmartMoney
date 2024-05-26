@@ -41,7 +41,9 @@ const PaginationCustom: React.FC<PaginationCustomProps> = ({
 			{pages.slice(startPage - 1, endPage).map((page) => (
 				<Button
 					key={page}
-					className={page === currentPage ? 'active bg-red-500' : ''}
+					className={`hover:bg-[#27AD75] ${
+						page === currentPage ? 'active bg-[#27AD75]' : ''
+					} `}
 					onClick={() => onPageChange(page)}>
 					{page}
 				</Button>

@@ -29,7 +29,8 @@ export interface SmartItem {
 	social: string[];
 }
 
-export const convertTime = (timestamp: number) => {
+export const convertTime = (timestamp: number): string => {
+	if (timestamp === 0) return '';
 	const date = new Date(timestamp);
 	const formattedDate = `${date.getFullYear()}-${String(
 		date.getMonth() + 1
@@ -54,6 +55,7 @@ export const divideAndRound = (divisor: string): string => {
 };
 
 export const roundToFourDecimals = (num: number): number => {
+	if (num === undefined || num === 0) return 0;
 	return parseFloat(num.toFixed(2));
 };
 

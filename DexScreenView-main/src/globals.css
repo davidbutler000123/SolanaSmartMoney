@@ -95,3 +95,7 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #555; /* Change this value for desired hover color */
 }
+
+.page-btn .active{
+  background-color: blue;
+}

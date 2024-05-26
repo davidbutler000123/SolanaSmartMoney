@@ -7,6 +7,7 @@ import Vectorsol from '@/assets/Vectorsol.svg';
 import Vectorclock from '@/assets/Vectorclock.svg';
 import Vectordex from '@/assets/Vectordex.svg';
 import Vectorcheck from '@/assets/Vectorcheck.svg';
+import VectorUncheck from '@/assets/VectorUncheck.svg';
 import CopyToClipboard from '@/components/ui/snippet';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,7 +25,6 @@ const ITEMS_PER_PAGE = 10;
 
 const serverUrl = 'http://95.217.146.177:5000';
 // const serverUrl = 'https://95.217.146.177:5000';
-
 const TableComponentSmart: React.FC<TableProps> = ({ updateType }) => {
 	const [currentPage, setCurrentPage] = useState<number>(1);
 	const totalPageRef = useRef(0);
@@ -32,15 +32,15 @@ const TableComponentSmart: React.FC<TableProps> = ({ updateType }) => {
 	const currentTyperef = useRef('0');
 	const [currentItems, setCurrentItems] = useState<SmartItem[]>([]);
 
-	// useEffect(() => {
-	// 	// const intervalId = setInterval(getServerData, 1000);
-	// 	// const intervalId = setInterval(getServerData, 1000);
-	// 	getServerData();
-	// 	const intervalId = setTimeout(getServerData, 1000);
+	useEffect(() => {
+		// const intervalId = setInterval(getServerData, 1000);
+		// const intervalId = setInterval(getServerData, 1000);
+		// getServerData();
+		const intervalSmartId = setInterval(getServerData, 1000);
 
-	// 	// Clear the interval when the component unmounts
-	// 	return () => clearInterval(intervalId);
-	// }, []);
+		// Clear the interval when the component unmounts
+		return () => clearInterval(intervalSmartId);
+	}, []);
 
 	useEffect(() => {
 		console.log('update', '11');
@@ -135,7 +135,7 @@ const TableComponentSmart: React.FC<TableProps> = ({ updateType }) => {
 	return (
 		<div className='w-full bg-white dark:bg-black '>
 			<div className='overflow-x-auto'>
-				<table className='min-w-full divide-y divide-gray-200 whitespace-nowrap'>
+				<table className='min-w-full divide-y divide-[#4C4C4C] whitespace-nowrap'>
 					<thead className='bg-white bg-opacity-10'>
 						<tr className='text-xs font-medium'>
 							<th className='px-6 py-3 text-left text-xs font-medium text-black dark:text-white uppercase tracking-wider'>
@@ -176,7 +176,7 @@ const TableComponentSmart: React.FC<TableProps> = ({ updateType }) => {
 							</th>
 						</tr>
 					</thead>
-					<tbody className='bg-white dark:bg-black divide-y text-white divide-gray-200'>
+					<tbody className='bg-white dark:bg-black divide-y text-white divide-[#4C4C4C]'>
 						{currentItems.map((item, index) => (
 							<tr key={index} className='text-black dark:text-white'>
 								<td className='pl-4 pr-12 py-4 '>
@@ -230,7 +230,7 @@ const TableComponentSmart: React.FC<TableProps> = ({ updateType }) => {
 											{item.audit[0] === true ? (
 												<Vectorcheck fill='white' width={14} height={14} />
 											) : (
-												<span className='bg-red-500 h-[14px]'></span>
+												<Vectorcheck fill='white' width={14} height={14} />
 											)}
 											<span className='whitespace-pre-wrap  text-center'>
 												Mint Disabled
@@ -240,7 +240,7 @@ const TableComponentSmart: React.FC<TableProps> = ({ updateType }) => {
 											{item.audit[1] === true ? (
 												<Vectorcheck fill='white' width={14} height={14} />
 											) : (
-												<span className='bg-red-500 h-[14px]'></span>
+												<Vectorcheck fill='white' width={14} height={14} />
 											)}
 											<span className='whitespace-pre-wrap text-center'>
 												LP Burned
@@ -250,7 +250,7 @@ const TableComponentSmart: React.FC<TableProps> = ({ updateType }) => {
 											{item.audit[2] === true ? (
 												<Vectorcheck fill='white' width={14} height={14} />
 											) : (
-												<span className='bg-red-500 h-[14px]'></span>
+												<Vectorcheck fill='white' width={14} height={14} />
 											)}
 											<span className='whitespace-pre-wrap text-center'>
 												Top 10-20%
