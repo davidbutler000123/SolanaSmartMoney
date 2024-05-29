@@ -68,6 +68,70 @@ def out_xls_file(df: pd.DataFrame, sheet_name: str, mode: str):
 
     print(f"{c.GREEN}Exporting [{sheet_name}] Excel file successful!{c.RESET}")
 
+def out_xls_sheet(df: pd.DataFrame, sheet_name: str, mode: str):
+    
+    file_path = f'{d.EXPORT_EXCEL_PATH}.xlsx'
+
+    with pd.ExcelWriter(file_path, mode=mode, engine="openpyxl") as writer:
+        df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+    print(f"{c.GREEN}Exporting [{sheet_name}] Excel Sheet file successful!{c.RESET}")
+
+def read_xls_sheet(file_path: str, sheetName: str):
+
+    b_read = False
+    try:
+        # Read the Excel file
+        df = pd.read_excel(file_path, sheet_name=sheetName)
+
+        # Check if the file is not empty
+        if not df.empty:
+            # Read the first record (row) from the DataFrame
+            # first_record = df.iloc[0]
+            b_read = True
+
+            # print(first_record)
+        else:            
+            print("The Excel file is empty.")
+
+    except FileNotFoundError:
+        print(f"File '{file_path}' not found.")
+        
+    except Exception as e:
+        print("An error occurred:", e)
+
+    if b_read is False:
+        return pd.DataFrame()
+    
+    return df
+
+def read_xls_file(file_path: str):
+
+    b_read = False
+    try:
+        # Read the Excel file
+        df = pd.read_excel(file_path)        
+
+        # Check if the file is not empty
+        if not df.empty:
+            # Read the first record (row) from the DataFrame
+            # first_record = df.iloc[0]            
+            b_read = True
+
+            # print(first_record)
+        else:            
+            print("The Excel file is empty.")
+
+    except FileNotFoundError:
+        print(f"File '{file_path}' not found.")
+        
+    except Exception as e:
+        print("An error occurred:", e)
+
+    if b_read is False:
+        return pd.DataFrame()
+    
+    return df
 
 def save_calc_metrics(address, period):
 
@@ -660,7 +724,6 @@ def get_amount(inValue):
 
 async def send_telegram_alert(bot_token, chat_id, token_info: str):
 
-
     print(token_info)
 
     address = token_info['address']
@@ -719,9 +782,50 @@ async def send_telegram_alert(bot_token, chat_id, token_info: str):
         with open(picture_path, 'rb') as picture:
             await bot.send_photo(chat_id=chat_id, photo=picture)
     
-    if logoURI:
-        await bot.send_photo(chat_id=chat_id, photo=logoURI, caption=text_template, parse_mode='HTML')
-    else:
-        await bot.send_message(chat_id=chat_id, text=text_template, parse_mode='HTML')
+    try:
+        if logoURI:
+            await bot.send_photo(chat_id=chat_id, photo=logoURI, caption=text_template, parse_mode='HTML')
+        else:
+            await bot.send_message(chat_id=chat_id, text=text_template, parse_mode='HTML')
+    except Exception as e:
+        print(f'{c.RED}bot.sendPhoto telegram alert error!{c.RESET}')
+        print(f'caught {type(e)}: {e.args}')
+        print(f'caught {e}')
+        pass
+
+# Single/Group Wallet Alert bot setting
+
+def bot_updateWallets(walletData):
+
+    url_wallet = f"{d.SERVER_URL}updateSmartWallets"
+    
+    try:
+        json_data = json.dumps(walletData)
+
+        headers = {
+            "Content-Type": "application/json",
+            "jsonrpc": "2.0",
+            "id": "1",
+        }
+
+        response = requests.post(url=url_wallet, data=json_data, headers=headers)
+
+        if response.status_code == 200:
+            json_response = response.json()  # Get the JSON response
+
+            items = json_response
+
+            print(f'{c.GREEN} ✅ Successfully {len(items)} wallet has been updated in {walletData['type']} list {c.RESET}')
+
+            return
+
+        else:
+            print(f"{c.RED}🚫 [bot_updateWallets] Failed to fetch data. Status code: {response.status_code}{c.RESET}")
+            # return pd.DataFrame(), "failed"
+            
+    except Exception as e:
+        print(f"{c.RED}🚫 [bot_updateWallets] exception err {e}{c.RESET}")
+        
+        
 
     

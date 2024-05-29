@@ -18,8 +18,9 @@ DENOMINATE = 'BOTH' # SOL / USD / BOTH
 
 SHOW_DELTA = 0 # 1:TRUE / 0:FALSE
 
-SERVER_URL = "http://95.217.146.177:5000/api/"
-# SERVER_URL = "http://192.168.140.113:5000/api/"
+# SERVER_URL = "http://95.217.146.177:5000/api/"
+SERVER_URL = "http://192.168.140.113:5000/api/"
+
 
 WSS_TOKEN_URL = "ws://localhost:5000"
 

@@ -7,7 +7,7 @@ import time
 
 from telegram import Bot
 
-async def main():
+def main():
     
     print(f"{c.GREEN}****************** Alert Bot Starting... ******************{c.RESET}")
 
@@ -28,7 +28,7 @@ async def main():
         if len(token_info) :
             count = count + 1
             print(f'{c.GREEN} ========== Alerting token info({count}) : [{token_info['symbol']}] ========== {c.RESET}')
-            await f.send_telegram_alert(bot_token, chat_id, token_info)
+            asyncio.run(f.send_telegram_alert(bot_token, chat_id, token_info))
         else:
             print(f"{c.RED}****************** Nothing to find token... ******************{c.RESET}")
 
@@ -44,4 +44,4 @@ async def main():
     print(f"{c.GREEN}****************** Alert Bot End... ******************{c.RESET}")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
