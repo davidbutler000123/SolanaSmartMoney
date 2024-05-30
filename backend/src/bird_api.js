@@ -10,6 +10,10 @@ const {
     getPoolInfo
 } = require('./dexscreener_api')
 
+const {
+    PriceHolderInstance
+} = require('./price_holder.js')
+
 import * as instance from './bot.js';
 
 let pageLimit = 10
@@ -151,7 +155,9 @@ let TokenList = {
         // token.holder_count = Object.values(token.holders).filter(item => item.amount > 0).length
     },
     pushNewAlert(alert) {
+        console.log('pushNewAlert: ' + alert.address)
         TokenList.alerts.push(alert)
+        PriceHolderInstance.register(alert.address)
         TokenList.alerts.forEach((alert, index, object) => {
             if(!checkLivePoolTime(alert.poolCreated)) {
                 // delete TokenList.alerts[index]
@@ -163,6 +169,7 @@ let TokenList = {
 
 let SmartWalletList = {
     limitPeriod: 3600000,  // 1 hour
+    // limitPeriod: 60000,  // 1 minute
     singleWallets: {},
     groupWallets: {},
     singleTrades: [],
@@ -192,16 +199,21 @@ let SmartWalletList = {
         }
     },
     clearOldTrades: async() => {
-        SmartWalletList.singleTrades = SmartWalletList.singleTrades.filter(item => 
-            (Date.now() - item.createdAt < SmartWalletList.limitPeriod)
-        )
-        SmartWalletList.groupTrades = SmartWalletList.groupTrades.filter(item => 
-            (Date.now() - item.createdAt < SmartWalletList.limitPeriod)
-        )
+        const opFilter = (item) => 
+            {
+                let bResult = Date.now() - item.createdAt < SmartWalletList.limitPeriod
+                if(!bResult) {
+                    PriceHolderInstance.unregister(item.token)
+                }
+                return bResult
+            }
+        SmartWalletList.singleTrades = SmartWalletList.singleTrades.filter(opFilter)
+        SmartWalletList.groupTrades = SmartWalletList.groupTrades.filter(opFilter)
     },
     checkNewTrade: async (tx) => {
         let bSingleSmart = false
         let bGroupSmart = false
+        
         if(tx.side == 'buy' && SmartWalletList.singleWallets[tx.owner]) {            
             bSingleSmart = true
         }
@@ -214,6 +226,7 @@ let SmartWalletList = {
 
         if(bSingleSmart || bGroupSmart) {
             let trade = destructTradeTransaction(tx)
+            PriceHolderInstance.register(trade.token)
             let poolInfo = await getPoolInfo(trade.token)
             poolInfo.fdvSol = poolInfo.fdvUsd / PriceProvider.currentSol
             poolInfo.liquidityUsd = poolInfo.liquiditySol * PriceProvider.currentSol
@@ -675,7 +688,18 @@ function getTokenAlerts(offset, limit, type) {
         }
     }    
     for(let i = TokenList.alerts.length - offset - 1; i >= 0; i--) {
-        alerts.push(TokenList.alerts[i])
+        let alert = TokenList.alerts[i]
+        if(PriceHolderInstance.tokens[alert.address]) {
+            alert.price = PriceHolderInstance.tokens[alert.address].price
+            alert.price_ath = PriceHolderInstance.tokens[alert.address].price_ath
+            alert.fdvNowUsd = alert.price * alert.totalSupply
+            if(PriceProvider.currentSol > 0) alert.fdvNowSol = alert.fdvNowUsd / PriceProvider.currentSol
+            alert.fdvAthUsd = alert.price_ath * alert.totalSupply
+            if(PriceProvider.currentSol > 0) alert.fdvAthSol = alert.fdvAthUsd / PriceProvider.currentSol
+            if(alert.initLiquiditySol > 0) alert.roiNow = alert.fdvNowSol / alert.initLiquiditySol
+            if(alert.initLiquiditySol > 0) alert.roiAth = alert.fdvAthSol / alert.initLiquiditySol
+        }
+        alerts.push(alert)
         if(alerts.length >= limit) break
     }
     return {
@@ -705,7 +729,18 @@ function getWalletAlerts(offset, limit, type) {
         }
     }    
     for(let i = targetTrades.length - offset - 1; i >= 0; i--) {
-        trades.push(targetTrades[i])
+        let trd = targetTrades[i]
+        if(PriceHolderInstance.tokens[trd.token]) {
+            trd.pool.price = PriceHolderInstance.tokens[trd.token].price
+            trd.pool.price_ath = PriceHolderInstance.tokens[trd.token].price_ath
+            trd.pool.fdvNowUsd = trd.pool.price * trd.pool.totalSupply
+            if(PriceProvider.currentSol > 0) trd.pool.fdvNowSol = trd.pool.fdvNowUsd / PriceProvider.currentSol
+            trd.pool.fdvAthUsd = trd.pool.price_ath * trd.pool.totalSupply
+            if(PriceProvider.currentSol > 0) trd.pool.fdvAthSol = trd.pool.fdvAthUsd / PriceProvider.currentSol
+            if(trd.pool.initLiquiditySol > 0) trd.pool.roiNow = trd.pool.fdvNowSol / trd.pool.initLiquiditySol
+            if(trd.pool.initLiquiditySol > 0) trd.pool.roiAth = trd.pool.fdvAthSol / trd.pool.initLiquiditySol
+        }
+        trades.push(trd)
         if(trades.length >= limit) break
     }
     return {

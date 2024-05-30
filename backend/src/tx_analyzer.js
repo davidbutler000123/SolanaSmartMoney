@@ -924,9 +924,18 @@ async function findAlertingTokens(buyTxns, holders) {
                 console.log(error.toString())
             }
             
-            let liquiditySol = response.data.data.liquidity
-            let holder_count = response.data.data.holder
-            let logoURI = response.data.data.logoURI
+            let liquiditySol = 0
+            let holder_count = 0
+            let logoURI = ''
+            let totalSupply = 0
+            
+            if(response.data && response.data.data) {
+                liquiditySol = response.data.data.liquidity
+                holder_count = response.data.data.holder
+                logoURI = response.data.data.logoURI
+                totalSupply = response.data.data.supply
+            }
+
             if(holder_count < holders) {
                 resolve({
                     result: 0,
@@ -1022,18 +1031,19 @@ async function findAlertingTokens(buyTxns, holders) {
                 lpBurned: true,
                 top10: false,
                 pairLifeTimeMins: Math.floor((Date.now() - token.poolCreated) / 60000),
+                totalSupply: totalSupply,
                 initLiquidityUsd: initLiquiditySol * solPriceInit,
                 initLiquiditySol: initLiquiditySol,
                 fdvUsd: fdvUsd,
                 fdvSol: fdvUsd / solPriceNow,
                 liquidityUsd: liquiditySol * solPriceNow,
                 liquiditySol: liquiditySol,
-                fdvAthSol: 6,
-                fdvAthUsd: 34000,
-                fdvNowSol: 7,
-                fdvNowUsd: 38000,
-                roiAth: 1.8,
-                roiNow: 1.2,
+                fdvAthSol: 0,
+                fdvAthUsd: 0,
+                fdvNowSol: 0,
+                fdvNowUsd: 0,
+                roiAth: 0,
+                roiNow: 0,
                 holder_count: holder_count ? holder_count : token.holder_count
             }
             TokenList.pushNewAlert(tokenAlert)

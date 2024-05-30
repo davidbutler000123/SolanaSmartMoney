@@ -77,7 +77,13 @@ export const getPoolInfo = async (token) => {
     }
     
     let logoURI = ''
-    if(response && response.data && response.data.data && response.data.data.logoURI) logoURI = response.data.data.logoURI
+    let price = 0
+    let totalSupply = 0
+    if(response && response.data && response.data.data && response.data.data.logoURI) {
+        logoURI = response.data.data.logoURI
+        price = response.data.data.price
+        totalSupply = response.data.data.supply
+    }
     
     let initLiquiditySol = 0
     query = `https://public-api.birdeye.so/defi/txs/pair?address=${pairAddress}&offset=0&limit=1&tx_type=add&sort_type=desc`
@@ -104,12 +110,14 @@ export const getPoolInfo = async (token) => {
         fdvUsd,        
         liquiditySol,
         initLiquiditySol,
-        fdvAthSol: 6,
-        fdvAthUsd: 34000,
-        fdvNowSol: 7,
-        fdvNowUsd: 38000,
-        roiAth: 1.8,
-        roiNow: 1.2,
+        price,
+        totalSupply,
+        fdvAthSol: 0,
+        fdvAthUsd: 0,
+        fdvNowSol: 0,
+        fdvNowUsd: 0,
+        roiAth: 0,
+        roiNow: 0,
         pairAddress,
         pairCreatedAt,
         pairLifeTimeMins,
