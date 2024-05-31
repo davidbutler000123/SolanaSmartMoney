@@ -40,7 +40,7 @@ const TableComponent: React.FC<TableProps> = ({ updateType }) => {
 	}, []);
 
 	useEffect(() => {
-		console.log('update', '11');
+		// console.log('update', '11');
 		let curType = '0';
 		if (updateType === 'alert1') curType = '0';
 		else curType = '1';
@@ -51,7 +51,7 @@ const TableComponent: React.FC<TableProps> = ({ updateType }) => {
 		if (curTypeItem !== null) {
 			curPage = parseInt(curTypeItem);
 		}
-		console.log('curPage--', curPage);
+		// console.log('curPage--', curPage);
 		currentPageref.current = curPage;
 		setCurrentPage(curPage);
 		getServerData();
@@ -72,18 +72,18 @@ const TableComponent: React.FC<TableProps> = ({ updateType }) => {
 			limit: ITEMS_PER_PAGE,
 			type: currentTyperef.current,
 		};
-		console.log('params----------------', params);
+		// console.log('params----------------', params);
 
 		axios
 			.get(`${serverUrl}/api/tokenAlerts`, { params })
 			.then((response) => {
-				console.log('getServerData-', response);
+				// console.log('getServerData-', response);
 				let round = 0;
 				// if (response.data.total % ITEMS_PER_PAGE !== 0) round = 1;
 				totalPageRef.current = Math.ceil(
 					parseInt(response.data.total) / ITEMS_PER_PAGE
 				);
-				console.log('total Page-', totalPageRef.current);
+				// console.log('total Page-', totalPageRef.current);
 				const alerts = response.data.alerts.map((item: any) => {
 					return {
 						id: '1',
@@ -111,8 +111,8 @@ const TableComponent: React.FC<TableProps> = ({ updateType }) => {
 							roundToFourDecimals(item.fdvNowSol),
 							divideAndRound(item.fdvNowUsd),
 						],
-						roiAth: item.roiAth + '%',
-						roiNow: item.roiNow + '%',
+						roiAth: roundToFourDecimals(item.roiAth) + '%',
+						roiNow: roundToFourDecimals(item.roiNow) + '%',
 						social: [
 							item.webSiteUrl,
 							item.telegramUrl,
@@ -143,9 +143,9 @@ const TableComponent: React.FC<TableProps> = ({ updateType }) => {
 							<th className='px-6 py-3 text-left text-xs font-medium text-black dark:text-white uppercase tracking-wider'>
 								SIGNAL/AFTER OPEN
 							</th>
-							<th className='px-6 py-3 text-left text-xs font-medium text-black dark:text-white uppercase tracking-wider'>
+							{/* <th className='px-6 py-3 text-left text-xs font-medium text-black dark:text-white uppercase tracking-wider'>
 								AUDIT
-							</th>
+							</th> */}
 							<th className='px-6 py-3 text-left text-xs font-medium text-black dark:text-white uppercase tracking-wider'>
 								INITAL LP
 							</th>
@@ -201,7 +201,7 @@ const TableComponent: React.FC<TableProps> = ({ updateType }) => {
 										<span>{item.signal}</span>
 									</div>
 								</td>
-								<td className='px-6 py-4 '>
+								{/* <td className='px-6 py-4 '>
 									<div className='flex flex-row text-xs gap-3'>
 										<div className='flex flex-col items-center  gap-2'>
 											{item.audit[0] === true ? (
@@ -234,7 +234,7 @@ const TableComponent: React.FC<TableProps> = ({ updateType }) => {
 											</span>
 										</div>
 									</div>
-								</td>
+								</td> */}
 								<td className='px-6 py-4 '>
 									<div className='flex flex-row gap-2 items-center'>
 										<Vectorsol fill='white' width={12} height={12} />

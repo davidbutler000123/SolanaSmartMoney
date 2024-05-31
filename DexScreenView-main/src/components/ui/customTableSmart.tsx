@@ -43,7 +43,7 @@ const TableComponentSmart: React.FC<TableProps> = ({ updateType }) => {
 	}, []);
 
 	useEffect(() => {
-		console.log('update', '11');
+		// console.log('update', '11');
 		let curType = 's0';
 		if (updateType === 'Individual') curType = 's0';
 		else curType = 's1';
@@ -54,7 +54,7 @@ const TableComponentSmart: React.FC<TableProps> = ({ updateType }) => {
 		if (curTypeItem !== null) {
 			curPage = parseInt(curTypeItem);
 		}
-		console.log('curPage--', curPage);
+		// console.log('curPage--', curPage);
 		currentPageref.current = curPage;
 
 		getServerData();
@@ -78,14 +78,14 @@ const TableComponentSmart: React.FC<TableProps> = ({ updateType }) => {
 			limit: ITEMS_PER_PAGE,
 			type: type,
 		};
-		console.log('params----------------', params);
+		// console.log('params----------------', params);
 
 		axios
 			.get(`${serverUrl}/api/walletAlerts`, { params })
 			.then((response) => {
-				console.log('getServerData-', response);
+				// console.log('getServerData-', response);
 				totalPageRef.current = response.data.total;
-				console.log('smart--1111');
+				// console.log('smart--1111');
 				const alerts = response.data.alerts.map((item: any) => {
 					return {
 						logoUrl: item.pool.logoURI,
@@ -114,8 +114,8 @@ const TableComponentSmart: React.FC<TableProps> = ({ updateType }) => {
 							roundToFourDecimals(item.pool.fdvNowSol),
 							divideAndRound(item.pool.fdvNowUsd),
 						],
-						roiAth: item.pool.roiAth,
-						roiNow: item.pool.roiNow,
+						roiAth: roundToFourDecimals(item.pool.roiAth),
+						roiNow: roundToFourDecimals(item.pool.roiNow),
 						social: [
 							item.pool.webSiteUrl,
 							item.pool.telegramUrl,
@@ -124,7 +124,7 @@ const TableComponentSmart: React.FC<TableProps> = ({ updateType }) => {
 						],
 					};
 				});
-				console.log('smart--', alerts, totalPageRef.current);
+				// console.log('smart--', alerts, totalPageRef.current);
 				setCurrentItems(alerts);
 			})
 			.catch((error) => {
@@ -150,9 +150,9 @@ const TableComponentSmart: React.FC<TableProps> = ({ updateType }) => {
 							<th className='px-6 py-3 text-left text-xs font-medium text-black dark:text-white uppercase tracking-wider'>
 								SIGNAL/AFTER OPEN
 							</th>
-							<th className='px-6 py-3 text-left text-xs font-medium text-black dark:text-white uppercase tracking-wider'>
+							{/* <th className='px-6 py-3 text-left text-xs font-medium text-black dark:text-white uppercase tracking-wider'>
 								AUDIT
-							</th>
+							</th> */}
 							<th className='px-6 py-3 text-left text-xs font-medium text-black dark:text-white uppercase tracking-wider'>
 								INITAL LP
 							</th>
@@ -224,7 +224,7 @@ const TableComponentSmart: React.FC<TableProps> = ({ updateType }) => {
 										</div>
 									</div>
 								</td>
-								<td className='px-6 py-4 '>
+								{/* <td className='px-6 py-4 '>
 									<div className='flex flex-row text-xs gap-3 text-black dark:text-white opacity-80'>
 										<div className='flex flex-col items-center  gap-2'>
 											{item.audit[0] === true ? (
@@ -257,7 +257,7 @@ const TableComponentSmart: React.FC<TableProps> = ({ updateType }) => {
 											</span>
 										</div>
 									</div>
-								</td>
+								</td> */}
 								<td className='px-6 py-4 '>
 									<div className='flex flex-row gap-2 items-center'>
 										<Vectorsol fill='white' width={12} height={12} />
