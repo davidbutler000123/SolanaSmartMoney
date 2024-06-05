@@ -1,5 +1,14 @@
 const axios = require('axios');
-const { Transaction, HistoryTxn, Token, SmartWallet } = require('./models')
+const { 
+    Transaction, 
+    HistoryTxn, 
+    Token, 
+    SmartWallet,
+    TokenAlert,
+    WalletAlert,
+    AddNewToken,
+    FindToken
+} = require('./models')
 const { 
     logTimeString, 
     fmtTimestr, 
@@ -105,7 +114,7 @@ let TokenList = {
             symbol: symbol,
             buy: 0,
             sell: 0,
-            poolCreated: 0,
+            pairCreatedAt: 0,
             holders: {},
             holder_count: 0,
             alerted: false
@@ -117,17 +126,17 @@ let TokenList = {
         if(!token) return
         token.buy++
     },
-    updateTokenPoolInfo: (address, poolCreated) => {
+    updateTokenPoolInfo: (address, pairCreatedAt) => {
         let token = TokenList.tokens[address]
         if(!token) return
-        if(checkLivePoolTime(poolCreated)) token.poolCreated = poolCreated
+        if(checkLivePoolTime(pairCreatedAt)) token.pairCreatedAt = pairCreatedAt
         else delete TokenList.tokens[address]
     },
     removeOldTokens: () => {
         Object.keys(TokenList.tokens).forEach(address => {
             let token = TokenList.tokens[address]
             if(!token) return
-            if(!checkLivePoolTime(token.poolCreated)) {
+            if(!checkLivePoolTime(token.pairCreatedAt)) {
                 delete TokenList.tokens[address]
             }
         })
@@ -157,9 +166,40 @@ let TokenList = {
     pushNewAlert(alert) {
         console.log('pushNewAlert: ' + alert.address)
         TokenList.alerts.push(alert)
-        PriceHolderInstance.register(alert.address)
+
+        try {
+            const tAlert = new TokenAlert({
+                type: 0,
+                address: alert.address,
+                buy: alert.buy,
+                created: Date.now(),
+                holder_count: alert.holder_count
+            })
+            tAlert.save()
+
+            AddNewToken({                
+                address: alert.address,
+                symbol: alert.symbol,
+                totalSupply: alert.totalSupply,
+                price: alert.price,
+                priceAth: alert.price,
+                initLiquiditySol: alert.initLiquiditySol,
+                initLiquidityUsd: alert.initLiquidityUsd,
+                pairAddress: alert.pairAddress,
+                pairCreatedAt: alert.pairCreatedAt,
+                dexUrl: alert.dexUrl,
+                webSiteUrl: alert.webSiteUrl,
+                telegramUrl: alert.telegramUrl,
+                twitterUrl: alert.twitterUrl,
+                logoURI: alert.logoURI
+            })
+        } catch (error) {
+            console.log(error.toString())
+        }
+        
+        // PriceHolderInstance.register(alert.address)
         TokenList.alerts.forEach((alert, index, object) => {
-            if(!checkLivePoolTime(alert.poolCreated)) {
+            if(!checkLivePoolTime(alert.pairCreatedAt)) {
                 // delete TokenList.alerts[index]
                 object.splice(index, 1)
             }
@@ -225,8 +265,10 @@ let SmartWalletList = {
         }
 
         if(bSingleSmart || bGroupSmart) {
+            let alertType = 0
             let trade = destructTradeTransaction(tx)
-            PriceHolderInstance.register(trade.token)
+            let walletCount = 1
+            // PriceHolderInstance.register(trade.token)
             let poolInfo = await getPoolInfo(trade.token)
             poolInfo.fdvSol = poolInfo.fdvUsd / PriceProvider.currentSol
             poolInfo.liquidityUsd = poolInfo.liquiditySol * PriceProvider.currentSol
@@ -236,6 +278,7 @@ let SmartWalletList = {
             trade['pool'] = poolInfo
 
             if(bSingleSmart) {
+                alertType = 0
                 SmartWalletList.singleTrades.push(trade)
 
                 if (poolInfo.tokenSymbol)
@@ -244,7 +287,9 @@ let SmartWalletList = {
                     ', count= ' + SmartWalletList.singleTrades.length)
             }
             if(bGroupSmart) {
+                alertType = 1
                 SmartWalletList.groupTrades.push(trade)
+                walletCount = Object.keys(SmartWalletList.groupWallets).length
                 
                 if (poolInfo.tokenSymbol)
                     instance.sendWalletData(trade, false)
@@ -252,6 +297,36 @@ let SmartWalletList = {
                 console.log('New group wallet trade: owner= ' + tx.owner + 
                     ', count= ' + SmartWalletList.groupTrades.length)
             }
+            
+            try {
+                const wAlert = new WalletAlert({
+                    type: alertType,
+                    token: trade.token,
+                    owner: trade.owner,
+                    buy: walletCount,
+                    created: Date.now()
+                })
+                wAlert.save()
+                AddNewToken({
+                    address: trade.token,
+                    symbol: trade.symbol,
+                    totalSupply: poolInfo.totalSupply,
+                    price: poolInfo.price,
+                    priceAth: poolInfo.price,
+                    initLiquiditySol: poolInfo.initLiquiditySol,
+                    initLiquidityUsd: poolInfo.initLiquidityUsd,
+                    pairAddress: poolInfo.pairAddress,
+                    pairCreatedAt: poolInfo.pairCreatedAt,
+                    dexUrl: poolInfo.dexUrl,
+                    webSiteUrl: poolInfo.webSiteUrl,
+                    telegramUrl: poolInfo.telegramUrl,
+                    twitterUrl: poolInfo.twitterUrl,
+                    logoURI: poolInfo.logoURI
+                })
+            } catch (error) {
+                console.log(error.toString())
+            }
+
             SmartWalletList.clearOldTrades()
         }
     }
@@ -664,90 +739,175 @@ async function updateTokenList(tx) {
     let pairCreatedAt = pool.pairCreatedAt + tzOffset * 60000    
     TokenList.updateTokenPoolInfo(token_addr, pairCreatedAt)
     return
-    const t = new Token({
-        address: token_addr,
-        name: name,
-        symbol: symbol,
-        poolAddress:'',
-        poolCreated: poolFromDexScreen.pairCreatedAt,
-        owner: ''
-    })
-    t.save()
 }
 
 function getTokenAlerts(offset, limit, type) {
-    let alerts = []
-    if(limit < 1 || TokenList.alerts.length <= offset ||
-        TokenList.alerts.length == 0 ||
-        offset < 0
-    ) {
-        return {
+    // let alerts = []
+    // if(limit < 1 || TokenList.alerts.length <= offset ||
+    //     TokenList.alerts.length == 0 ||
+    //     offset < 0
+    // ) {
+    //     return {
+    //         result: 0,
+    //         total: 0,
+    //         alerts: []
+    //     }
+    // }    
+    // for(let i = TokenList.alerts.length - offset - 1; i >= 0; i--) {
+    //     let alert = TokenList.alerts[i]
+    //     if(PriceHolderInstance.tokens[alert.address]) {
+    //         alert.price = PriceHolderInstance.tokens[alert.address].price
+    //         alert.price_ath = PriceHolderInstance.tokens[alert.address].price_ath
+    //         alert.fdvNowUsd = alert.price * alert.totalSupply
+    //         if(PriceProvider.currentSol > 0) alert.fdvNowSol = alert.fdvNowUsd / PriceProvider.currentSol
+    //         alert.fdvAthUsd = alert.price_ath * alert.totalSupply
+    //         if(PriceProvider.currentSol > 0) alert.fdvAthSol = alert.fdvAthUsd / PriceProvider.currentSol
+    //         if(alert.initLiquiditySol > 0) alert.roiNow = alert.fdvNowSol / alert.initLiquiditySol
+    //         if(alert.initLiquiditySol > 0) alert.roiAth = alert.fdvAthSol / alert.initLiquiditySol
+    //     }
+    //     alerts.push(alert)
+    //     if(alerts.length >= limit) break
+    // }
+    // return {
+    //     result: 0,
+    //     total: TokenList.alerts.length,
+    //     alerts: alerts
+    // }
+    return new Promise(async (resolve, reject) => {
+        let total = await TokenAlert.countDocuments({type: type})
+        const result = await TokenAlert.aggregate([
+            {
+                $match: {
+                    type: type
+                }
+            },
+            {
+                $lookup: {
+                    from: 'tokens',
+                    localField: 'address',
+                    foreignField: 'address',
+                    as: 'tokenInfo'
+                }
+            },
+            {   $unwind:"$tokenInfo" },
+            {   
+                $project:{
+                    address : 1,
+                    buy : 1,
+                    holder_count : 1,
+                    created: 1,
+                    symbol : "$tokenInfo.symbol",
+                    totalSupply : "$tokenInfo.totalSupply",
+                    price : "$tokenInfo.price",
+                    priceAth : "$tokenInfo.priceAth",
+                    initLiquiditySol : "$tokenInfo.initLiquiditySol",
+                    initLiquidityUsd : "$tokenInfo.initLiquidityUsd",
+                    pairAddress : "$tokenInfo.pairAddress",
+                    pairCreatedAt : "$tokenInfo.pairCreatedAt",
+                    dexUrl : "$tokenInfo.dexUrl",
+                    webSiteUrl : "$tokenInfo.webSiteUrl",
+                    telegramUrl : "$tokenInfo.telegramUrl",
+                    twitterUrl : "$tokenInfo.twitterUrl",
+                    logoURI : "$tokenInfo.logoURI"
+                } 
+            }
+        ])
+        .skip(offset).limit(limit)
+        .exec()
+        resolve({
             result: 0,
-            total: 0,
-            alerts: []
-        }
-    }    
-    for(let i = TokenList.alerts.length - offset - 1; i >= 0; i--) {
-        let alert = TokenList.alerts[i]
-        if(PriceHolderInstance.tokens[alert.address]) {
-            alert.price = PriceHolderInstance.tokens[alert.address].price
-            alert.price_ath = PriceHolderInstance.tokens[alert.address].price_ath
-            alert.fdvNowUsd = alert.price * alert.totalSupply
-            if(PriceProvider.currentSol > 0) alert.fdvNowSol = alert.fdvNowUsd / PriceProvider.currentSol
-            alert.fdvAthUsd = alert.price_ath * alert.totalSupply
-            if(PriceProvider.currentSol > 0) alert.fdvAthSol = alert.fdvAthUsd / PriceProvider.currentSol
-            if(alert.initLiquiditySol > 0) alert.roiNow = alert.fdvNowSol / alert.initLiquiditySol
-            if(alert.initLiquiditySol > 0) alert.roiAth = alert.fdvAthSol / alert.initLiquiditySol
-        }
-        alerts.push(alert)
-        if(alerts.length >= limit) break
-    }
-    return {
-        result: 0,
-        total: TokenList.alerts.length,
-        alerts: alerts
-    }
+            total: total,
+            alerts: result
+        })
+    })  
 }
 
 function getWalletAlerts(offset, limit, type) {
-    let trades = []
-    let targetTrades = []
-    if(type == 0) {
-        targetTrades = SmartWalletList.singleTrades
-    }
-    else {
-        targetTrades = SmartWalletList.groupTrades
-    }
-    if(limit < 1 || targetTrades.length <= offset ||
-        targetTrades.length == 0 ||
-        offset < 0
-    ) {
-        return {
+    // let trades = []
+    // let targetTrades = []
+    // if(type == 0) {
+    //     targetTrades = SmartWalletList.singleTrades
+    // }
+    // else {
+    //     targetTrades = SmartWalletList.groupTrades
+    // }
+    // if(limit < 1 || targetTrades.length <= offset ||
+    //     targetTrades.length == 0 ||
+    //     offset < 0
+    // ) {
+    //     return {
+    //         result: 0,
+    //         total: 0,
+    //         alerts: []
+    //     }
+    // }    
+    // for(let i = targetTrades.length - offset - 1; i >= 0; i--) {
+    //     let trd = targetTrades[i]
+    //     if(PriceHolderInstance.tokens[trd.token]) {
+    //         trd.pool.price = PriceHolderInstance.tokens[trd.token].price
+    //         trd.pool.price_ath = PriceHolderInstance.tokens[trd.token].price_ath
+    //         trd.pool.fdvNowUsd = trd.pool.price * trd.pool.totalSupply
+    //         if(PriceProvider.currentSol > 0) trd.pool.fdvNowSol = trd.pool.fdvNowUsd / PriceProvider.currentSol
+    //         trd.pool.fdvAthUsd = trd.pool.price_ath * trd.pool.totalSupply
+    //         if(PriceProvider.currentSol > 0) trd.pool.fdvAthSol = trd.pool.fdvAthUsd / PriceProvider.currentSol
+    //         if(trd.pool.initLiquiditySol > 0) trd.pool.roiNow = trd.pool.fdvNowSol / trd.pool.initLiquiditySol
+    //         if(trd.pool.initLiquiditySol > 0) trd.pool.roiAth = trd.pool.fdvAthSol / trd.pool.initLiquiditySol
+    //     }
+    //     trades.push(trd)
+    //     if(trades.length >= limit) break
+    // }
+    // return {
+    //     result: 0,
+    //     total: targetTrades.length,
+    //     alerts: trades
+    // }
+    return new Promise(async (resolve, reject) => {
+        let total = await WalletAlert.countDocuments({type: type})
+        const result = await WalletAlert.aggregate([
+            {
+                $match: {
+                    type: type
+                }
+            },
+            {
+                $lookup: {
+                    from: 'tokens',
+                    localField: 'token',
+                    foreignField: 'address',
+                    as: 'tokenInfo'
+                }
+            },
+            {   $unwind:"$tokenInfo" },
+            {   
+                $project:{
+                    token : 1,
+                    owner : 1,
+                    buy : 1,
+                    created: 1,
+                    symbol : "$tokenInfo.symbol",
+                    totalSupply : "$tokenInfo.totalSupply",
+                    price : "$tokenInfo.price",
+                    priceAth : "$tokenInfo.priceAth",
+                    initLiquiditySol : "$tokenInfo.initLiquiditySol",
+                    initLiquidityUsd : "$tokenInfo.initLiquidityUsd",
+                    pairAddress : "$tokenInfo.pairAddress",
+                    pairCreatedAt : "$tokenInfo.pairCreatedAt",
+                    dexUrl : "$tokenInfo.dexUrl",
+                    webSiteUrl : "$tokenInfo.webSiteUrl",
+                    telegramUrl : "$tokenInfo.telegramUrl",
+                    twitterUrl : "$tokenInfo.twitterUrl",
+                    logoURI : "$tokenInfo.logoURI"
+                } 
+            }
+        ])
+        .skip(offset).limit(limit)
+        .exec()
+        resolve({
             result: 0,
-            total: 0,
-            alerts: []
-        }
-    }    
-    for(let i = targetTrades.length - offset - 1; i >= 0; i--) {
-        let trd = targetTrades[i]
-        if(PriceHolderInstance.tokens[trd.token]) {
-            trd.pool.price = PriceHolderInstance.tokens[trd.token].price
-            trd.pool.price_ath = PriceHolderInstance.tokens[trd.token].price_ath
-            trd.pool.fdvNowUsd = trd.pool.price * trd.pool.totalSupply
-            if(PriceProvider.currentSol > 0) trd.pool.fdvNowSol = trd.pool.fdvNowUsd / PriceProvider.currentSol
-            trd.pool.fdvAthUsd = trd.pool.price_ath * trd.pool.totalSupply
-            if(PriceProvider.currentSol > 0) trd.pool.fdvAthSol = trd.pool.fdvAthUsd / PriceProvider.currentSol
-            if(trd.pool.initLiquiditySol > 0) trd.pool.roiNow = trd.pool.fdvNowSol / trd.pool.initLiquiditySol
-            if(trd.pool.initLiquiditySol > 0) trd.pool.roiAth = trd.pool.fdvAthSol / trd.pool.initLiquiditySol
-        }
-        trades.push(trd)
-        if(trades.length >= limit) break
-    }
-    return {
-        result: 0,
-        total: targetTrades.length,
-        alerts: trades
-    }
+            total: total,
+            alerts: result
+        })
+    })    
 }
 
 PriceProvider.startSolQuerying()

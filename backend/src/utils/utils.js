@@ -40,3 +40,17 @@ export const destructTradeTransaction = (tx) => {
         baseAmount
     }
 }
+
+export const calcTimeMins = (pairCreatedAt) => {
+    let ageLabel = ''
+    let timeMins = Math.floor((Date.now() - pairCreatedAt) / 60000)
+    if(timeMins < 60) {
+        ageLabel = timeMins + ' mins ago'
+    }
+    else if(timeMins < 1440) {
+        ageLabel = Math.floor(timeMins / 60) + ' hours ago'
+    }
+    else {
+        ageLabel = Math.floor(timeMins / 1440) + ' days ago'
+    }
+}

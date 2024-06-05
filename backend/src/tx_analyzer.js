@@ -927,13 +927,17 @@ async function findAlertingTokens(buyTxns, holders) {
             let liquiditySol = 0
             let holder_count = 0
             let logoURI = ''
+            let price = 0
             let totalSupply = 0
             
             if(response.data && response.data.data) {
                 liquiditySol = response.data.data.liquidity
                 holder_count = response.data.data.holder
                 logoURI = response.data.data.logoURI
+                price = response.data.data.price
                 totalSupply = response.data.data.supply
+                if(!price) price = 0
+                if(!totalSupply) totalSupply = 0
             }
 
             if(holder_count < holders) {
@@ -969,6 +973,7 @@ async function findAlertingTokens(buyTxns, holders) {
                     if(validPool.baseToken) {
                         tokenName = validPool.baseToken.name
                         tokenSymbol = validPool.baseToken.symbol
+                        if(!tokenSymbol) tokenSymbol = ''
                     }
                     if(validPool.liquidity) liquiditySol = validPool.liquidity.quote
                     fdvUsd = validPool.fdv
@@ -1010,7 +1015,7 @@ async function findAlertingTokens(buyTxns, holders) {
                     initLiquiditySol = trade.tokens[1].amount / (10 ** trade.tokens[1].decimals)
                 }
             }
-            let pubTime = Math.floor(token.poolCreated / 1000)
+            let pubTime = Math.floor(token.pairCreatedAt / 1000)
             let targetTime = Math.floor(Date.now() / 1000)
             await askPriceHistory(PriceProvider.sol_address, 'token', '1m', pubTime, targetTime)
             let solPriceInit = PriceProvider.querySol(pubTime)
@@ -1018,7 +1023,7 @@ async function findAlertingTokens(buyTxns, holders) {
             let tokenAlert = {
                 address: token.address,
                 name: tokenName,
-                symbol: tokenSymbol,
+                symbol: tokenSymbol,                
                 logoURI: logoURI,
                 dexUrl: dexUrl,
                 imageUrl: imageUrl,
@@ -1026,11 +1031,12 @@ async function findAlertingTokens(buyTxns, holders) {
                 telegramUrl: telegramUrl,
                 twitterUrl: twitterUrl,
                 buy: token.buy,
-                poolCreated: token.poolCreated,
+                pairCreatedAt: token.pairCreatedAt,
                 mintDisabled: false,
                 lpBurned: true,
                 top10: false,
-                pairLifeTimeMins: Math.floor((Date.now() - token.poolCreated) / 60000),
+                pairLifeTimeMins: Math.floor((Date.now() - token.pairCreatedAt) / 60000),
+                price: price,
                 totalSupply: totalSupply,
                 initLiquidityUsd: initLiquiditySol * solPriceInit,
                 initLiquiditySol: initLiquiditySol,

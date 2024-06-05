@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { calcTimeMins } = require('./utils/utils')
 
 export const getPoolInfo = async (token) => {
     let query = 'https://api.dexscreener.io/latest/dex/tokens/' + token
@@ -21,6 +22,11 @@ export const getPoolInfo = async (token) => {
     let webSiteUrl = ''
     let telegramUrl = ''
     let twitterUrl = ''
+    let logoURI = ''
+    let price = 0
+    let totalSupply = 0
+    let initLiquiditySol = 0
+
     if(response.data && response.data.pairs && response.data.pairs.length > 0) {
         let pools = response.data.pairs.filter(item => 
             item.chainId == 'solana' && 
@@ -37,16 +43,7 @@ export const getPoolInfo = async (token) => {
             fdvUsd = validPool.fdv
             pairAddress = validPool.pairAddress
             pairCreatedAt = validPool.pairCreatedAt
-            pairLifeTimeMins = Math.floor((Date.now() - pairCreatedAt) / 60000)
-            if(pairLifeTimeMins < 60) {
-                pairAgeLabel = pairLifeTimeMins + ' mins ago'
-            }
-            else if(pairLifeTimeMins < 1440) {
-                pairAgeLabel = Math.floor(pairLifeTimeMins / 60) + ' hours ago'
-            }
-            else {
-                pairAgeLabel = Math.floor(pairLifeTimeMins / 1440) + ' days ago'
-            }
+            pairLifeTimeMins = calcTimeMins(pairCreatedAt)
 
             if(validPool.url) dexUrl = validPool.url
             if(validPool.info && validPool.info.websites && validPool.info.websites.length > 0) {
@@ -61,7 +58,33 @@ export const getPoolInfo = async (token) => {
         }                
     } 
 
-    if(pairAddress == '') return {}
+    if(pairAddress == '') {
+        console.log('getPoolInfo pairAddress = NULL for token: ' + token)
+        return {
+            tokenName,
+            tokenSymbol,
+            fdvUsd,        
+            liquiditySol,
+            initLiquiditySol,
+            price,
+            totalSupply,
+            fdvAthSol: 0,
+            fdvAthUsd: 0,
+            fdvNowSol: 0,
+            fdvNowUsd: 0,
+            roiAth: 0,
+            roiNow: 0,
+            pairAddress,
+            pairCreatedAt,
+            pairLifeTimeMins,
+            pairAgeLabel,
+            dexUrl,
+            webSiteUrl,
+            telegramUrl,
+            twitterUrl,
+            logoURI
+        }
+    }
     
     query = `https://public-api.birdeye.so/defi/token_overview?address=${token}`
     try {
@@ -76,16 +99,15 @@ export const getPoolInfo = async (token) => {
         console.log(error.toString())
     }
     
-    let logoURI = ''
-    let price = 0
-    let totalSupply = 0
+    
     if(response && response.data && response.data.data && response.data.data.logoURI) {
         logoURI = response.data.data.logoURI
         price = response.data.data.price
         totalSupply = response.data.data.supply
+        if(!price) price = 0
+        if(!totalSupply) totalSupply = 0
     }
     
-    let initLiquiditySol = 0
     query = `https://public-api.birdeye.so/defi/txs/pair?address=${pairAddress}&offset=0&limit=1&tx_type=add&sort_type=desc`
     response = await axios.get(query, {
         headers: {

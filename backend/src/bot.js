@@ -146,7 +146,7 @@ ${timeStr}
 	// let chatid = process.env.CHAT_ID
 
 	sessions.forEach((session, chatid) => {
-		console.log(chatid)
+		// console.log(chatid)
 		try {
 			if (logURI)
 				bot.sendPhoto(chatid, logURI, { caption: NEW_MSG, parse_mode: 'HTML', disable_web_page_preview: true }).catch((err) => {
