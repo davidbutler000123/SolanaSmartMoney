@@ -42,6 +42,14 @@ client.on('connect', async function (connection) {
                 return
             }
 
+            if(tx.from.symbol == 'USDT' ||
+                tx.to.symbol == 'USDT' ||
+                tx.from.symbol == 'USDC' ||
+                tx.to.symbol == 'USDC'
+            ) {
+                return
+            }
+
             if(tx.side != 'buy' && tx.side != 'sell') {
                 updateTokenList(tx)
             }

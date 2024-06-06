@@ -14,12 +14,15 @@ async function AddNewToken(tObj) {
         if(!existToken.pairAddress && tObj.pairAddress) {
             existToken.totalSupply = tObj.totalSupply
             existToken.price = tObj.price
-            existToken.priceAth = tObj.priceAth
+            if(existToken.priceAth < tObj.priceAth) {
+                existToken.priceAth = tObj.priceAth
+            }
             existToken.initLiquiditySol = tObj.initLiquiditySol
             existToken.initLiquidityUsd = tObj.initLiquidityUsd
             existToken.pairAddress = tObj.pairAddress
             existToken.pairCreatedAt = tObj.pairCreatedAt
             existToken.dexUrl = tObj.dexUrl
+            existToken.imageUrl = tObj.imageUrl
             existToken.webSiteUrl = tObj.webSiteUrl
             existToken.telegramUrl = tObj.telegramUrl
             existToken.twitterUrl = tObj.twitterUrl

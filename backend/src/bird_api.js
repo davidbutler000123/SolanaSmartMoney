@@ -13,6 +13,7 @@ const {
     logTimeString, 
     fmtTimestr, 
     checkLivePoolTime, 
+    calcTimeMins,
     destructTradeTransaction } = require('./utils/utils');
 
 const {
@@ -172,7 +173,10 @@ let TokenList = {
                 type: 0,
                 address: alert.address,
                 buy: alert.buy,
-                created: Date.now(),
+                priceSignal: alert.price,
+                fdvUsd: alert.totalSupply * alert.price,
+                fdvSol: alert.totalSupply * alert.price / PriceProvider.currentSol,
+                createdAt: Date.now(),
                 holder_count: alert.holder_count
             })
             tAlert.save()
@@ -188,6 +192,7 @@ let TokenList = {
                 pairAddress: alert.pairAddress,
                 pairCreatedAt: alert.pairCreatedAt,
                 dexUrl: alert.dexUrl,
+                imageUrl: alert.imageUrl,
                 webSiteUrl: alert.webSiteUrl,
                 telegramUrl: alert.telegramUrl,
                 twitterUrl: alert.twitterUrl,
@@ -270,6 +275,8 @@ let SmartWalletList = {
             let walletCount = 1
             // PriceHolderInstance.register(trade.token)
             let poolInfo = await getPoolInfo(trade.token)
+            if(!poolInfo.pairAddress) return
+
             poolInfo.fdvSol = poolInfo.fdvUsd / PriceProvider.currentSol
             poolInfo.liquidityUsd = poolInfo.liquiditySol * PriceProvider.currentSol
             poolInfo.initLiquidityUsd = poolInfo.initLiquiditySol * PriceProvider.currentSol
@@ -304,7 +311,10 @@ let SmartWalletList = {
                     token: trade.token,
                     owner: trade.owner,
                     buy: walletCount,
-                    created: Date.now()
+                    priceSignal: poolInfo.price,
+                    fdvUsd: poolInfo.totalSupply * poolInfo.price,
+                    fdvSol: poolInfo.totalSupply * poolInfo.price / PriceProvider.currentSol,
+                    createdAt: Date.now()
                 })
                 wAlert.save()
                 AddNewToken({
@@ -318,6 +328,7 @@ let SmartWalletList = {
                     pairAddress: poolInfo.pairAddress,
                     pairCreatedAt: poolInfo.pairCreatedAt,
                     dexUrl: poolInfo.dexUrl,
+                    imageUrl: poolInfo.imageUrl,
                     webSiteUrl: poolInfo.webSiteUrl,
                     telegramUrl: poolInfo.telegramUrl,
                     twitterUrl: poolInfo.twitterUrl,
@@ -775,6 +786,7 @@ function getTokenAlerts(offset, limit, type) {
     // }
     return new Promise(async (resolve, reject) => {
         let total = await TokenAlert.countDocuments({type: type})
+        total = Math.ceil(total / limit)
         const result = await TokenAlert.aggregate([
             {
                 $match: {
@@ -794,8 +806,10 @@ function getTokenAlerts(offset, limit, type) {
                 $project:{
                     address : 1,
                     buy : 1,
+                    fdvSol: 1,
+                    fdvUsd: 1,
                     holder_count : 1,
-                    created: 1,
+                    createdAt: 1,
                     symbol : "$tokenInfo.symbol",
                     totalSupply : "$tokenInfo.totalSupply",
                     price : "$tokenInfo.price",
@@ -805,6 +819,7 @@ function getTokenAlerts(offset, limit, type) {
                     pairAddress : "$tokenInfo.pairAddress",
                     pairCreatedAt : "$tokenInfo.pairCreatedAt",
                     dexUrl : "$tokenInfo.dexUrl",
+                    imageUrl : "$tokenInfo.imageUrl",
                     webSiteUrl : "$tokenInfo.webSiteUrl",
                     telegramUrl : "$tokenInfo.telegramUrl",
                     twitterUrl : "$tokenInfo.twitterUrl",
@@ -812,8 +827,21 @@ function getTokenAlerts(offset, limit, type) {
                 } 
             }
         ])
-        .skip(offset).limit(limit)
+        .skip(offset * limit).limit(limit)
         .exec()
+
+        for(let i = 0; i < result.length; i++) {
+            let item = result[i]
+            item.pairAgeLabel = calcTimeMins(item.pairCreatedAt)
+
+            item.fdvNowUsd = item.price * item.totalSupply
+            if(PriceProvider.currentSol > 0) item.fdvNowSol = item.fdvNowUsd / PriceProvider.currentSol
+            item.fdvAthUsd = item.priceAth * item.totalSupply
+            if(PriceProvider.currentSol > 0) item.fdvAthSol = item.fdvAthUsd / PriceProvider.currentSol
+            if(item.initLiquiditySol > 0) item.roiNow = item.fdvNowSol / item.initLiquiditySol
+            if(item.initLiquiditySol > 0) item.roiAth = item.fdvAthSol / item.initLiquiditySol
+        }
+
         resolve({
             result: 0,
             total: total,
@@ -863,7 +891,8 @@ function getWalletAlerts(offset, limit, type) {
     // }
     return new Promise(async (resolve, reject) => {
         let total = await WalletAlert.countDocuments({type: type})
-        const result = await WalletAlert.aggregate([
+        total = Math.ceil(total / limit)
+        let result = await WalletAlert.aggregate([
             {
                 $match: {
                     type: type
@@ -883,7 +912,9 @@ function getWalletAlerts(offset, limit, type) {
                     token : 1,
                     owner : 1,
                     buy : 1,
-                    created: 1,
+                    fdvSol: 1,
+                    fdvUsd: 1,
+                    createdAt: 1,
                     symbol : "$tokenInfo.symbol",
                     totalSupply : "$tokenInfo.totalSupply",
                     price : "$tokenInfo.price",
@@ -893,6 +924,7 @@ function getWalletAlerts(offset, limit, type) {
                     pairAddress : "$tokenInfo.pairAddress",
                     pairCreatedAt : "$tokenInfo.pairCreatedAt",
                     dexUrl : "$tokenInfo.dexUrl",
+                    imageUrl : "$tokenInfo.imageUrl",
                     webSiteUrl : "$tokenInfo.webSiteUrl",
                     telegramUrl : "$tokenInfo.telegramUrl",
                     twitterUrl : "$tokenInfo.twitterUrl",
@@ -900,8 +932,21 @@ function getWalletAlerts(offset, limit, type) {
                 } 
             }
         ])
-        .skip(offset).limit(limit)
+        .skip(offset * limit).limit(limit)
         .exec()
+
+        for(let i = 0; i < result.length; i++) {
+            let item = result[i]
+            item.pairAgeLabel = calcTimeMins(item.pairCreatedAt)
+
+            item.fdvNowUsd = item.price * item.totalSupply
+            if(PriceProvider.currentSol > 0) item.fdvNowSol = item.fdvNowUsd / PriceProvider.currentSol
+            item.fdvAthUsd = item.priceAth * item.totalSupply
+            if(PriceProvider.currentSol > 0) item.fdvAthSol = item.fdvAthUsd / PriceProvider.currentSol
+            if(item.initLiquiditySol > 0) item.roiNow = item.fdvNowSol / item.initLiquiditySol
+            if(item.initLiquiditySol > 0) item.roiAth = item.fdvAthSol / item.initLiquiditySol
+        }
+
         resolve({
             result: 0,
             total: total,

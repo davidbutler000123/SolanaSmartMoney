@@ -53,4 +53,5 @@ export const calcTimeMins = (pairCreatedAt) => {
     else {
         ageLabel = Math.floor(timeMins / 1440) + ' days ago'
     }
+    return ageLabel
 }

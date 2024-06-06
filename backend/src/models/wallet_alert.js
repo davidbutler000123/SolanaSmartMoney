@@ -5,7 +5,10 @@ const alertSchema = mongoose.Schema({
   token: { type: String, required: true },
   owner: { type: String, required: true },
   buy: { type: Number, required: true },
-  created: { type: Number, required: true }  
+  priceSignal: { type: Number, required: true },
+  fdvSol: { type: Number, required: true },
+  fdvUsd: { type: Number, required: true },
+  createdAt: { type: Number, required: true }  
 });
 
 //module.exports = mongoose.model('Transaction', txSchema);

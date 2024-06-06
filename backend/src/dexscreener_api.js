@@ -19,6 +19,7 @@ export const getPoolInfo = async (token) => {
     let pairLifeTimeMins = 0
     let pairAgeLabel = ''
     let dexUrl = ''
+    let imageUrl = ''
     let webSiteUrl = ''
     let telegramUrl = ''
     let twitterUrl = ''
@@ -46,6 +47,7 @@ export const getPoolInfo = async (token) => {
             pairLifeTimeMins = calcTimeMins(pairCreatedAt)
 
             if(validPool.url) dexUrl = validPool.url
+            if(validPool.info && validPool.info.imageUrl) imageUrl = validPool.info.imageUrl
             if(validPool.info && validPool.info.websites && validPool.info.websites.length > 0) {
                 webSiteUrl = validPool.info.websites[0].url
             }
@@ -79,6 +81,7 @@ export const getPoolInfo = async (token) => {
             pairLifeTimeMins,
             pairAgeLabel,
             dexUrl,
+            imageUrl,
             webSiteUrl,
             telegramUrl,
             twitterUrl,
@@ -108,7 +111,7 @@ export const getPoolInfo = async (token) => {
         if(!totalSupply) totalSupply = 0
     }
     
-    query = `https://public-api.birdeye.so/defi/txs/pair?address=${pairAddress}&offset=0&limit=1&tx_type=add&sort_type=desc`
+    query = `https://public-api.birdeye.so/defi/txs/pair?address=${pairAddress}&offset=0&limit=1&tx_type=add&sort_type=asc`
     response = await axios.get(query, {
         headers: {
             'accept': 'application/json',
@@ -145,6 +148,7 @@ export const getPoolInfo = async (token) => {
         pairLifeTimeMins,
         pairAgeLabel,
         dexUrl,
+        imageUrl,
         webSiteUrl,
         telegramUrl,
         twitterUrl,

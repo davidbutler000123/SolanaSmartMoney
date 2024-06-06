@@ -4,7 +4,10 @@ const alertSchema = mongoose.Schema({
   type: { type: Number, required: true },
   address: { type: String, required: true },
   buy: { type: Number, required: true },
-  created: { type: Number, required: true },
+  priceSignal: { type: Number, required: true },
+  fdvSol: { type: Number, required: true },
+  fdvUsd: { type: Number, required: true },
+  createdAt: { type: Number, required: true },
   holder_count: { type: Number, required: true }  
 });
 

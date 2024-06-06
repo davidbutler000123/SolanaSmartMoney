@@ -992,7 +992,7 @@ async function findAlertingTokens(buyTxns, holders) {
                 }                
             }            
             let initLiquiditySol = 0
-            query = `https://public-api.birdeye.so/defi/txs/pair?address=${pairAddress}&offset=0&limit=1&tx_type=add&sort_type=desc`
+            query = `https://public-api.birdeye.so/defi/txs/pair?address=${pairAddress}&offset=0&limit=1&tx_type=add&sort_type=asc`
             response = {}
             try {
                 response = await axios.get(query, {

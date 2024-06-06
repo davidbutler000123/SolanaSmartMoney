@@ -11,6 +11,7 @@ const tokenSchema = mongoose.Schema({
   pairAddress: String,
   pairCreatedAt: { type: Number, required: true },
   dexUrl: String,
+  imageUrl: String,
   webSiteUrl: String,
   telegramUrl: String,
   twitterUrl: String,
