@@ -23,7 +23,7 @@ import PaginationCustom from './paginationCustom';
 
 const ITEMS_PER_PAGE = 10;
 
-const serverUrl = 'http://95.217.146.177:5000';
+const serverUrl = process.env.serverUrl;
 // const serverUrl = 'https://95.217.146.177:5000';
 const TableComponentSmart: React.FC<TableProps> = ({ updateType }) => {
 	const [currentPage, setCurrentPage] = useState<number>(1);
@@ -88,39 +88,39 @@ const TableComponentSmart: React.FC<TableProps> = ({ updateType }) => {
 				// console.log('smart--1111');
 				const alerts = response.data.alerts.map((item: any) => {
 					return {
-						logoUrl: item.pool.logoURI,
-						pairInfo: [item.pool.tokenSymbol, item.pool.tokenName],
-						pairs: item.pool.pairAddress,
+						logoUrl: item.imageUrl,
+						pairInfo: [item.tokenSymbol, item.tokenName],
+						pairs: item.pairAddress,
 						wallet: { type: true, value: item.owner },
-						signal: [convertTime(item.createdAt), item.pool.pairAgeLabel],
+						signal: [convertTime(item.createdAt), item.pairAgeLabel],
 						audit: [
-							item.pool.mintDisabled,
-							item.pool.lpBurned,
-							item.pool.top10,
+							item.mintDisabled,
+							item.lpBurned,
+							item.top10,
 						],
 						initialLP: [
-							roundToFourDecimals(item.pool.initLiquiditySol),
-							divideAndRound(item.pool.initLiquidityUsd),
+							roundToFourDecimals(item.initLiquiditySol),
+							divideAndRound(item.initLiquidityUsd),
 						],
 						fdvSignal: [
-							roundToFourDecimals(item.pool.fdvSol),
-							divideAndRound(item.pool.fdvUsd),
+							roundToFourDecimals(item.fdvSol),
+							divideAndRound(item.fdvUsd),
 						],
 						fdvAth: [
-							roundToFourDecimals(item.pool.fdvAthSol),
-							divideAndRound(item.pool.fdvAthUsd),
+							roundToFourDecimals(item.fdvAthSol),
+							divideAndRound(item.fdvAthUsd),
 						],
 						fdvNow: [
-							roundToFourDecimals(item.pool.fdvNowSol),
-							divideAndRound(item.pool.fdvNowUsd),
+							roundToFourDecimals(item.fdvNowSol),
+							divideAndRound(item.fdvNowUsd),
 						],
-						roiAth: roundToFourDecimals(item.pool.roiAth),
-						roiNow: roundToFourDecimals(item.pool.roiNow),
+						roiAth: roundToFourDecimals(item.roiAth),
+						roiNow: roundToFourDecimals(item.roiNow),
 						social: [
-							item.pool.webSiteUrl,
-							item.pool.telegramUrl,
-							item.pool.twitterUrl,
-							item.pool.dexUrl,
+							item.webSiteUrl,
+							item.telegramUrl,
+							item.twitterUrl,
+							item.dexUrl,
 						],
 					};
 				});

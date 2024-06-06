@@ -23,7 +23,7 @@ import PaginationCustom from './paginationCustom';
 
 const ITEMS_PER_PAGE = 10;
 
-const serverUrl = 'http://95.217.146.177:5000';
+const serverUrl = process.env.serverUrl;
 // const serverUrl = 'https://95.217.146.177:5000';
 
 const TableComponent: React.FC<TableProps> = ({ updateType }) => {
@@ -87,13 +87,10 @@ const TableComponent: React.FC<TableProps> = ({ updateType }) => {
 				const alerts = response.data.alerts.map((item: any) => {
 					return {
 						id: '1',
-						logoUrl: item.logoURI,
+						logoUrl: item.imageUrl,
 						pairInfo: [item.symbol, item.name],
 						pairs: item.address,
-						signal:
-							convertTime(item.poolCreated) +
-							'/' +
-							getTimeFormat(item.pairLifeTimeMins),
+						signal: [convertTime(item.createdAt), item.pairAgeLabel],
 						audit: [item.mintDisabled, item.lpBurned, item.top10],
 						initialLP: [
 							roundToFourDecimals(item.initLiquiditySol),
@@ -111,8 +108,8 @@ const TableComponent: React.FC<TableProps> = ({ updateType }) => {
 							roundToFourDecimals(item.fdvNowSol),
 							divideAndRound(item.fdvNowUsd),
 						],
-						roiAth: roundToFourDecimals(item.roiAth) + '%',
-						roiNow: roundToFourDecimals(item.roiNow) + '%',
+						roiAth: roundToFourDecimals(item.roiAth),
+						roiNow: roundToFourDecimals(item.roiNow),
 						social: [
 							item.webSiteUrl,
 							item.telegramUrl,
@@ -198,7 +195,12 @@ const TableComponent: React.FC<TableProps> = ({ updateType }) => {
 								<td className='px-6 py-4 '>
 									<div className='flex flex-row font-medium text-[12px] leading-4 items-center gap-2 whitespace-nowrap'>
 										<Vectorclock fill='white' width={11} height={11} />
-										<span>{item.signal}</span>
+										<div>
+											<span className=' text-black dark:text-white opacity-80'>
+												{item.signal[0] + '/'}
+											</span>
+											<span className='text-[14px]'>{item.signal[1]}</span>
+										</div>
 									</div>
 								</td>
 								{/* <td className='px-6 py-4 '>

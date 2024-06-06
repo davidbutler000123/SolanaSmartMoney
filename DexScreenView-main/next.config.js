@@ -5,5 +5,8 @@ module.exports = {
 			use: ["@svgr/webpack"]
 		});
 		return config;
-	}
+	},
+	env: {
+		serverUrl: process.env.SERVER_URL,
+	},
 };

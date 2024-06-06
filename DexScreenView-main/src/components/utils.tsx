@@ -56,7 +56,7 @@ export const divideAndRound = (divisor: string): string => {
 
 export const roundToFourDecimals = (num: number): number => {
 	if (num === undefined || num === 0) return 0;
-	return parseFloat(num.toFixed(2));
+	return parseFloat(num.toFixed(1));
 };
 
 export type TableProps = {
