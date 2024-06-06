@@ -815,7 +815,7 @@ def bot_updateWallets(walletData):
 
             items = json_response
 
-            print(f'{c.GREEN} ✅ Successfully {len(items)} wallet has been updated in {walletData['type']} list {c.RESET}')
+            print(f'{c.GREEN} ✅ Successfully {len(items)} wallet has been updated in {walletData["type"]} list {c.RESET}')
 
             return
 
