@@ -131,3 +131,4 @@ dist
 /SaiverBot/output
 /SaiverBot/__pycache__
 /backend/yarn.lock
+/SaiverBot/sub/__pycache__

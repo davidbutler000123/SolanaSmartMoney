@@ -631,7 +631,7 @@ def find_AlertingTokens():
                         "twitterUrl":item['twitterUrl'],
                         "buyTxs": item['buy'],
                         "holders": item['holder_count'],
-                        "poolCreatedTime": item['poolCreated'],
+                        "poolCreatedTime": item['pairCreatedAt'],
                         "pairTimeInfo": item['pairLifeTimeMins'],
                         "initLiquiditySol": item['initLiquiditySol'],
                         "initLiquidityUsd": item['initLiquidityUsd'],
@@ -827,5 +827,32 @@ def bot_updateWallets(walletData):
         print(f"{c.RED}🚫 [bot_updateWallets] exception err {e}{c.RESET}")
         
         
+async def send_telegram_alert_test(bot_token, chat_id, token_info: str):
+    
+    bot = Bot(token=bot_token)
 
+    logoURI = None
+
+    text_template = "Test is text"
+    
+    # Path to the picture you want to send
+    picture_path = None #'./image/3.jpg'
+
+    if picture_path is not None:
+        # Send the picture to the channel
+        with open(picture_path, 'rb') as picture:
+            await bot.send_photo(chat_id=chat_id, photo=picture)
+    
+    try:
+        if logoURI:
+            await bot.send_photo(chat_id=chat_id, photo=logoURI, caption=text_template, parse_mode='HTML')
+        else:
+            await bot.send_message(chat_id=chat_id, text=text_template, parse_mode='HTML')
+    except Exception as e:
+        print(f'{c.RED}bot.sendPhoto telegram alert error!{c.RESET}')
+        print(f'caught {type(e)}: {e.args}')
+        print(f'caught {e}')
+        pass
+
+# Single/Group Wallet Alert bot setting
     

@@ -47,7 +47,7 @@ let PriceUpdaterInstance = {
                 t.price = ohItem.c
                 if(t.priceAth < ohItem.h) t.priceAth = ohItem.h
                 t.save()
-                console.log('price_query -> duration: ' + (Date.now() - tsVal))
+                // console.log('price_query -> duration: ' + (Date.now() - tsVal))
             }
         }
         tsConsume = (Date.now() - tsInitVal)
