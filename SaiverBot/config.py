@@ -19,7 +19,7 @@ DENOMINATE = 'BOTH' # SOL / USD / BOTH
 SHOW_DELTA = 0 # 1:TRUE / 0:FALSE
 
 # SERVER_URL = "http://95.217.146.177:5000/api/"
-SERVER_URL = "http://192.168.140.113:5000/api/"
+SERVER_URL = "http://localhost:5000/api/"
 
 
 WSS_TOKEN_URL = "ws://localhost:5000"
@@ -40,8 +40,8 @@ BOT_MULTI_TOKEN     = '7003733091:AAGRZsdxaMp4GhBaayhfRI_1FczO8Txfv2Y' # Moko
 
 CHAT_NAME = 'https://t.me/BabyBotTesting'
 
-BUY_TXS = 500
+BUY_TXS = 2
 
-TOKEN_HOLDERS = 500
+TOKEN_HOLDERS = 2
 
 EXPORT_EXCEL_PATH = "./output/"
