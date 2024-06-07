@@ -575,6 +575,9 @@ async function saveTokenTxnToDB(tx) {
         TokenList.updateHolders(token, tx.owner, baseAmount * (-1))
     }
 
+    SubscriberTxCounter.add_live()
+    return
+    
     const t = new Transaction({
         txHash: tx.txHash,
         blockUnixTime: tx.blockUnixTime,
@@ -593,7 +596,7 @@ async function saveTokenTxnToDB(tx) {
     })
     t.save()
     .then(item => {                
-        SubscriberTxCounter.add_live()                
+        SubscriberTxCounter.add_live()
     })
     .catch((e) => {
         console.log('ERROR: ', tx, '----------------->', e)

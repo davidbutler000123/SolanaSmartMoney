@@ -3,6 +3,7 @@ const {
     Token
 } = require('./models');
 const { token } = require('morgan');
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 let PriceUpdaterInstance = {
     bRunning: false,
@@ -49,6 +50,7 @@ let PriceUpdaterInstance = {
                 t.save()
                 // console.log('price_query -> duration: ' + (Date.now() - tsVal))
             }
+            await sleep(50)
         }
         tsConsume = (Date.now() - tsInitVal)
         console.log('price_query -> Whole consume: ' + tsConsume)
