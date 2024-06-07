@@ -32,7 +32,7 @@ export default function SmartPage() {
 					Group
 				</span>
 				<div className='flex-grow'></div>
-				<Button className='bg-gray-400'>Export Excel</Button>
+				{/* <Button className='bg-gray-400'>Export Excel</Button> */}
 			</div>
 			<div className='flex flex-col'>
 				<TableComponentSmart updateType={activeTab} />

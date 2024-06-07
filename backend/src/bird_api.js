@@ -715,8 +715,7 @@ async function updateTokenList(tx) {
         if(tx.from.symbol == 'SOL' || tx.from.symbol == 'USDC' || tx.from.symbol == 'USDT') return
         token_addr = tx.from.address
         token_symbol = tx.from.symbol + '-' + tx.to.symbol
-    }
-    console.log('pool_symbol = ' + token_symbol)
+    }    
     if(token_addr == '') return
 
     TokenList.removeOldTokens()
@@ -838,8 +837,10 @@ function getTokenAlerts(offset, limit, type) {
             if(PriceProvider.currentSol > 0) item.fdvNowSol = item.fdvNowUsd / PriceProvider.currentSol
             item.fdvAthUsd = item.priceAth * item.totalSupply
             if(PriceProvider.currentSol > 0) item.fdvAthSol = item.fdvAthUsd / PriceProvider.currentSol
-            if(item.initLiquiditySol > 0) item.roiNow = item.fdvNowSol / item.initLiquiditySol
-            if(item.initLiquiditySol > 0) item.roiAth = item.fdvAthSol / item.initLiquiditySol
+            if(item.fdvUsd > 0) {
+                item.roiNow = item.fdvNowUsd / item.fdvUsd
+                item.roiAth = item.fdvAthUsd / item.fdvUsd
+            }
         }
 
         resolve({
@@ -943,8 +944,10 @@ function getWalletAlerts(offset, limit, type) {
             if(PriceProvider.currentSol > 0) item.fdvNowSol = item.fdvNowUsd / PriceProvider.currentSol
             item.fdvAthUsd = item.priceAth * item.totalSupply
             if(PriceProvider.currentSol > 0) item.fdvAthSol = item.fdvAthUsd / PriceProvider.currentSol
-            if(item.initLiquiditySol > 0) item.roiNow = item.fdvNowSol / item.initLiquiditySol
-            if(item.initLiquiditySol > 0) item.roiAth = item.fdvAthSol / item.initLiquiditySol
+            if(item.fdvUsd > 0) {
+                item.roiNow = item.fdvNowUsd / item.fdvUsd
+                item.roiAth = item.fdvAthUsd / item.fdvUsd
+            }
         }
 
         resolve({

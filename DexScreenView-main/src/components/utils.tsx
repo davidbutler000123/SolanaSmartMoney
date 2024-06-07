@@ -50,8 +50,13 @@ export const divideAndRound = (divisor: string): string => {
 		return '0';
 	}
 
-	const result = numericDivisor / 1000;
-	return parseFloat(result.toFixed(2)) + 'K';
+	let result = numericDivisor
+	if(result < 1000) return parseFloat(result.toFixed(2)) + ''
+	result = result / 1000;
+	if(result < 1000) return parseFloat(result.toFixed(2)) + 'K'
+	result = result / 1000;
+	if(result < 1000) return parseFloat(result.toFixed(2)) + 'M'
+	return parseFloat(result.toFixed(2)) + 'B';
 };
 
 export const roundToFourDecimals = (num: number): number => {

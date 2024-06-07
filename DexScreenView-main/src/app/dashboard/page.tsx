@@ -36,7 +36,7 @@ export default function DashboardPage() {
 					Alert 02
 				</span>
 				<div className='flex-grow'></div>
-				<Button className='bg-gray-400'>Export Excel</Button>
+				{/* <Button className='bg-gray-400'>Export Excel</Button> */}
 			</div>
 
 			<div className='flex flex-col'>

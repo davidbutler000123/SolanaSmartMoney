@@ -99,19 +99,19 @@ const TableComponentSmart: React.FC<TableProps> = ({ updateType }) => {
 							item.top10,
 						],
 						initialLP: [
-							roundToFourDecimals(item.initLiquiditySol),
+							divideAndRound(item.initLiquiditySol),
 							divideAndRound(item.initLiquidityUsd),
 						],
 						fdvSignal: [
-							roundToFourDecimals(item.fdvSol),
+							divideAndRound(item.fdvSol),
 							divideAndRound(item.fdvUsd),
 						],
 						fdvAth: [
-							roundToFourDecimals(item.fdvAthSol),
+							divideAndRound(item.fdvAthSol),
 							divideAndRound(item.fdvAthUsd),
 						],
 						fdvNow: [
-							roundToFourDecimals(item.fdvNowSol),
+							divideAndRound(item.fdvNowSol),
 							divideAndRound(item.fdvNowUsd),
 						],
 						roiAth: roundToFourDecimals(item.roiAth),
