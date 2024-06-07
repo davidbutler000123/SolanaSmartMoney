@@ -893,6 +893,8 @@ async function fetchTokenTradesHistory(token, until)
 }
 
 async function findAlertingTokens(buyTxns, holders) {
+    console.log(`findAlertingTokens: buyTxns=${buyTxns}, holders=${holders}`)
+    
     return new Promise(async (resolve, reject) => {
         let buyMetTokens = Object.values(TokenList.tokens).filter(item => 
             item.buy > buyTxns && 
