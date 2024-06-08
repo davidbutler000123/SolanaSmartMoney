@@ -40,8 +40,8 @@ BOT_MULTI_TOKEN     = '7003733091:AAGRZsdxaMp4GhBaayhfRI_1FczO8Txfv2Y' # Moko
 
 CHAT_NAME = 'https://t.me/BabyBotTesting'
 
-BUY_TXS = 2
+BUY_TXS = 500
 
-TOKEN_HOLDERS = 2
+TOKEN_HOLDERS = 500
 
 EXPORT_EXCEL_PATH = "./output/"
