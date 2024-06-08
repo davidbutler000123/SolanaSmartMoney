@@ -827,7 +827,8 @@ function getTokenAlerts(offset, limit, type) {
                     twitterUrl : "$tokenInfo.twitterUrl",
                     logoURI : "$tokenInfo.logoURI"
                 } 
-            }
+            },
+            {   $sort: {"createdAt": -1} },
         ])
         .skip(offset * limit).limit(limit)
         .exec()
@@ -934,7 +935,8 @@ function getWalletAlerts(offset, limit, type) {
                     twitterUrl : "$tokenInfo.twitterUrl",
                     logoURI : "$tokenInfo.logoURI"
                 } 
-            }
+            },
+            {   $sort: {"createdAt": -1} },
         ])
         .skip(offset * limit).limit(limit)
         .exec()
