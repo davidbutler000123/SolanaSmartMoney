@@ -726,6 +726,7 @@ async def send_telegram_alert(bot_token, chat_id, token_info: str):
 
     print(token_info)
 
+    typeName = "🃏Alert "
     address = token_info['address']
     name = token_info['name']
     symbol = token_info['symbol']
@@ -750,7 +751,16 @@ async def send_telegram_alert(bot_token, chat_id, token_info: str):
     else:
         lp_FDV = round(token_info['liquiditySol'] / token_info['fdvSol'] * 100, 1)
 
-    text_template = f'🌟 <a href="{dexUrl}">{name}</a> {symbol} triggers Alert 01 \
+    if token_info['type'] == 1:
+        typeName = '🃏Alert 01 - FOMO Buy'
+    elif token_info['type'] == 2:
+        typeName = '🃏Alert 02 - FOMO New Pairs'
+    else:
+        typeName = '🃏Alert 03 - Large LP'
+
+    text_template = f'🌟 <a href="{dexUrl}">{name}</a> {symbol} \
+\n \
+\n{typeName} \
 \n \
 \n💵 Info  \
 \nPairs: {pair_timeInfo} mins ago \
