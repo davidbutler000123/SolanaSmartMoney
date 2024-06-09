@@ -35,6 +35,15 @@ export default function DashboardPage() {
 					} cursor-pointer pt-2 px-6 outline-none hover:text-dark dark:hover:text-white border-b-4 hover:border-black dark:hover:border-white text-lg py-3`}>
 					Alert 02
 				</span>
+				<span
+					onClick={() => setActive('alert3')}
+					className={`text-[14px] ${
+						activeTab === 'alert3'
+							? 'text-black dark:text-white border-b-4 border-black dark:border-white'
+							: 'border-transparent text-[#8A919E]'
+					} cursor-pointer pt-2 px-6 outline-none hover:text-dark dark:hover:text-white border-b-4 hover:border-black dark:hover:border-white text-lg py-3`}>
+					Alert 03
+				</span>
 				<div className='flex-grow'></div>
 				{/* <Button className='bg-gray-400'>Export Excel</Button> */}
 			</div>

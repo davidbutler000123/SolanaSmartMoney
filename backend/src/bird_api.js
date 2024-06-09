@@ -170,7 +170,7 @@ let TokenList = {
 
         try {
             const tAlert = new TokenAlert({
-                type: 0,
+                type: alert.type,
                 address: alert.address,
                 buy: alert.buy,
                 priceSignal: alert.price,

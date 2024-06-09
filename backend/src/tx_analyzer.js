@@ -926,6 +926,7 @@ async function findAlertingTokens(buyTxns, holders) {
             
             let liquiditySol = 0
             let holder_count = 0
+            let type = 0
             let logoURI = ''
             let price = 0
             let totalSupply = 0
@@ -947,6 +948,11 @@ async function findAlertingTokens(buyTxns, holders) {
                 })
                 return
             }
+
+            if(buy > holder_count) type = 1
+            else type = 2
+
+
             query = 'https://api.dexscreener.io/latest/dex/tokens/' + token.address
             response = {}
             try {
@@ -1015,12 +1021,15 @@ async function findAlertingTokens(buyTxns, holders) {
                     initLiquiditySol = trade.tokens[1].amount / (10 ** trade.tokens[1].decimals)
                 }
             }
+            if(initLiquiditySol > 100) type = 3
+
             let pubTime = Math.floor(token.pairCreatedAt / 1000)
             let targetTime = Math.floor(Date.now() / 1000)
             await askPriceHistory(PriceProvider.sol_address, 'token', '1m', pubTime, targetTime)
             let solPriceInit = PriceProvider.querySol(pubTime)
             let solPriceNow = PriceProvider.querySol(targetTime)
             let tokenAlert = {
+                type: type,
                 address: token.address,
                 name: tokenName,
                 symbol: tokenSymbol,                

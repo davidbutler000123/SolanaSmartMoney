@@ -30,7 +30,7 @@ const TableComponent: React.FC<TableProps> = ({ updateType }) => {
 	const [currentPage, setCurrentPage] = useState<number>(1);
 	const totalPageRef = useRef(0);
 	const currentPageref = useRef(1);
-	const currentTyperef = useRef('0');
+	const currentTyperef = useRef('1');
 	const [currentItems, setCurrentItems] = useState<AlertItem[]>([]);
 
 	useEffect(() => {
@@ -41,9 +41,10 @@ const TableComponent: React.FC<TableProps> = ({ updateType }) => {
 
 	useEffect(() => {
 		// console.log('update', '11');
-		let curType = '0';
-		if (updateType === 'alert1') curType = '0';
-		else curType = '1';
+		let curType = '1';
+		if (updateType === 'alert1') curType = '1';
+		if (updateType === 'alert2') curType = '2';
+		else curType = '3';
 		currentTyperef.current = curType;
 		totalPageRef.current = 0;
 		let curPage = 1;
