@@ -81,9 +81,7 @@ const TableComponent: React.FC<TableProps> = ({ updateType }) => {
 				// console.log('getServerData-', response);
 				let round = 0;
 				// if (response.data.total % ITEMS_PER_PAGE !== 0) round = 1;
-				totalPageRef.current = Math.ceil(
-					parseInt(response.data.total) / ITEMS_PER_PAGE
-				);
+				totalPageRef.current = response.data.total;
 				// console.log('total Page-', totalPageRef.current);
 				const alerts = response.data.alerts.map((item: any) => {
 					return {
