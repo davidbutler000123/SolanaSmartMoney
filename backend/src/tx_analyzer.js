@@ -949,7 +949,7 @@ async function findAlertingTokens(buyTxns, holders) {
                 return
             }
 
-            if(buy > holder_count) type = 1
+            if(token.buy > holder_count) type = 1
             else type = 2
 
 
