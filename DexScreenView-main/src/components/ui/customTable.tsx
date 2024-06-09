@@ -43,7 +43,7 @@ const TableComponent: React.FC<TableProps> = ({ updateType }) => {
 		// console.log('update', '11');
 		let curType = '1';
 		if (updateType === 'alert1') curType = '1';
-		if (updateType === 'alert2') curType = '2';
+		else if (updateType === 'alert2') curType = '2';
 		else curType = '3';
 		currentTyperef.current = curType;
 		totalPageRef.current = 0;
