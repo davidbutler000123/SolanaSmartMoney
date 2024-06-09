@@ -621,6 +621,7 @@ def find_AlertingTokens():
                     item = json_response.get('token', {})
 
                     token_data = {
+                        "type":item['type'],
                         "address":item['address'],
                         "name":item['name'],
                         "symbol":item['symbol'],
