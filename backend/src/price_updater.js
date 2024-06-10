@@ -46,7 +46,8 @@ let PriceUpdaterInstance = {
                 let ohItem = response.data.data.items[response.data.data.items.length - 1]
                 let t = tokens[i]
                 t.price = ohItem.c
-                if(t.priceAth < ohItem.h) t.priceAth = ohItem.h
+                //if(t.priceAth < ohItem.h) t.priceAth = ohItem.h
+                if(t.priceAth < t.price) t.priceAth = t.price
                 t.save()
                 // console.log('price_query -> duration: ' + (Date.now() - tsVal))
             }
