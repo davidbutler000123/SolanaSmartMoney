@@ -10,10 +10,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import colors from 'colors';
 
-import * as bot from './bot.js'
 import { PriceUpdaterInstance } from './price_updater.js';
-
-import { guard, newToken } from './utils/auth';
 
 require('./subscribe_txs_token')
 require('./trade_indexer')
@@ -22,7 +19,9 @@ const walletMannager = require('./walletManager')
 const alchemyApi = require('./alchemy_api')
 const birdApi = require('./bird_api')
 
-PriceUpdaterInstance.start()
+if(process.env.SERVER_TYPE == 'step02') {
+  PriceUpdaterInstance.start()
+}
 
 const app = express();
 

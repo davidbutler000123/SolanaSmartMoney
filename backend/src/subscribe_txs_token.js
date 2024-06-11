@@ -1,5 +1,8 @@
 #!/usr/bin/env node
-import * as instance from './bot.js';
+let instance
+if(process.env.SERVER_TYPE == 'step02') {
+  instance = require('./bot.js')
+}
 
 var WebSocketClient = require('websocket').client;
 const util = require("util")
@@ -53,9 +56,10 @@ client.on('connect', async function (connection) {
             if(tx.side != 'buy' && tx.side != 'sell') {
                 updateTokenList(tx)
             }
-            else if(tx.side == 'buy') {
-                if (instance.bot_start)
+            else if(tx.side == 'buy') {                
+                if (process.env.SERVER_TYPE == 'step02' && instance.bot_start) {
                     SmartWalletList.checkNewTrade(tx)
+                }
             }
             saveTokenTxnToDB(tx)
         }

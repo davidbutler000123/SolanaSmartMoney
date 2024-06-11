@@ -24,7 +24,10 @@ const {
     PriceHolderInstance
 } = require('./price_holder.js')
 
-import * as instance from './bot.js';
+let instance
+if(process.env.SERVER_TYPE == 'step02') {
+    instance = require('./bot.js')
+}
 
 let pageLimit = 10
 
@@ -224,7 +227,7 @@ let SmartWalletList = {
         setTimeout(() => { SmartWalletList.begin_thread() }, 1000)
     },
     begin_thread: async () => {
-        if (instance.bot_start){
+        if (process.env.SERVER_TYPE == 'step02' && instance.bot_start){
             SmartWalletList.updateFromDb()
             return
         }
@@ -288,7 +291,7 @@ let SmartWalletList = {
                 alertType = 0
                 SmartWalletList.singleTrades.push(trade)
 
-                if (poolInfo.tokenSymbol)
+                if (process.env.SERVER_TYPE == 'step02' && poolInfo.tokenSymbol)
                     instance.sendWalletData(trade, true)
                 console.log('New single wallet trade: owner= ' + tx.owner + 
                     ', count= ' + SmartWalletList.singleTrades.length)
@@ -298,7 +301,7 @@ let SmartWalletList = {
                 SmartWalletList.groupTrades.push(trade)
                 walletCount = Object.keys(SmartWalletList.groupWallets).length
                 
-                if (poolInfo.tokenSymbol)
+                if (process.env.SERVER_TYPE == 'step02' && poolInfo.tokenSymbol)
                     instance.sendWalletData(trade, false)
 
                 console.log('New group wallet trade: owner= ' + tx.owner + 
