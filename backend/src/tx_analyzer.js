@@ -21,7 +21,7 @@ let poolFromDexScreen = null
 
 let fetchedLastTxn = {
     txHash: '',
-    blockUnixTime: 0
+    blockUnixTime: 0,    
 }
 
 async function askPriceFromDexScreen(token, resolve) {
@@ -686,8 +686,8 @@ const sortWallets = (rankSize, filterZero, filterTokensAtleast, sortMode) => {
 async function fetchPairTradeHistoryForSwap(pair, until) {
     let pairCreateTime = new Date(poolFromDexScreen.pairCreatedAt)
     console.log(`pairCreatetime = ${pairCreateTime.toLocaleDateString()}`)
-    let targetTime = poolFromDexScreen.pairCreatedAt + (until + 1)*3600*1000
-    if(until == 0) targetTime = Date.now()
+    let targetTime = poolFromDexScreen.pairCreatedAt + (until + 1)*3600*1000    
+    if(until == 0 || targetTime > Date.now()) targetTime = Date.now()
     let nOffset = 0
     let stepSize = 10000, direct = 1      // step for pair trades
     let approxReach = false
@@ -749,7 +749,7 @@ async function fetchPairTradeHistoryForSwap(pair, until) {
 async function fetchPairTradeHistoryForLiquidity(pair, until) {
     let nOffset = 0
     let targetTime = poolFromDexScreen.pairCreatedAt + (until + 1)*3600*1000
-    if(until == 0) targetTime = Date.now()
+    if(until == 0 || targetTime > Date.now()) targetTime = Date.now()
     while(true) {
         let records = []
         try {
@@ -790,11 +790,18 @@ async function fetchPairTradeHistoryForLiquidity(pair, until) {
 
 async function getFetchPercent(token, pair, until) {
 
+    if(SubscriberTxCounter.fetch_completed) {
+        SubscriberTxCounter.fetch_completed = false 
+        return 100
+    }
+
     let percent = 0
     let pubTime = Math.floor(poolFromDexScreen.pairCreatedAt / 1000)
     let untilHours = 2
     if(until) untilHours = until
-    let targetTime = Math.floor((poolFromDexScreen.pairCreatedAt + untilHours*3600*1000) / 1000)
+    let targetTime = (poolFromDexScreen.pairCreatedAt + untilHours*3600*1000)
+    if(until == 0 || targetTime > Date.now()) targetTime = Date.now()
+    targetTime = Math.floor(targetTime / 1000)
     console.log(`pair =  ${pair}, ${fmtTimestr(poolFromDexScreen.pairCreatedAt)}`)
 
     let pipe = [
@@ -900,7 +907,7 @@ async function fetchTokenTradesHistory(token, until)
         if(SubscriberTxCounter.fetch_active || 
             nState == FetchState.completed || nState == FetchState.swapActive) return
 
-        SubscriberTxCounter.fetch_active = true
+        SubscriberTxCounter.fetch_active = true        
         if(nState == FetchState.started ||
             nState == FetchState.swapInactive
         ) {
@@ -913,6 +920,7 @@ async function fetchTokenTradesHistory(token, until)
             await checkRenouncedAndLpburned(token, fetchedLastTxn.txHash)
         }
         SubscriberTxCounter.fetch_active = false
+        SubscriberTxCounter.fetch_completed = true
     })
 }
 

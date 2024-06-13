@@ -88,13 +88,13 @@ async function checkRenouncedAndLpburned(address, beforeTxnHash) {
             const FREEZE_AUTHORITY_DATA = 'bkGbjLJNggwBSCWTJk5RL3SQRCHJXWrqvPzW9447wtQtnT1'
             freezeInstructions = detail_response.data.result.transaction.message.instructions.filter(item => item.data == FREEZE_AUTHORITY_DATA)
             
+            if(freezeInstructions && freezeInstructions.length > 0) {
+                renouncedTime = detail_response.data.result.blockTime
+                console.log('freezeAccount found: tx = ' + signature + ', renouncedTime = ' + renouncedTime)
+                break
+            }
         } catch (error) {
             console.log(error.toString())
-        }
-        if(freezeInstructions && freezeInstructions.length > 0) {
-            renouncedTime = detail_response.data.result.blockTime
-            console.log('freezeAccount found: tx = ' + signature + ', renouncedTime = ' + renouncedTime)
-            break
         }
     }
 

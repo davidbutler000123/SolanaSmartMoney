@@ -36,6 +36,7 @@ let SubscriberTxCounter = {
     count_hist: 0,
     prev_txns: [],
     fetch_active: false,
+    fetch_completed: false,
     clear: function() {
         SubscriberTxCounter.count_live = 0
         SubscriberTxCounter.count_hist = 0
