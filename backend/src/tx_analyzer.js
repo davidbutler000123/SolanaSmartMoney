@@ -686,50 +686,50 @@ const sortWallets = (rankSize, filterZero, filterTokensAtleast, sortMode) => {
 async function fetchPairTradeHistoryForSwap(pair, until) {
     let pairCreateTime = new Date(poolFromDexScreen.pairCreatedAt)
     console.log(`pairCreatetime = ${pairCreateTime.toLocaleDateString()}`)
-    let targetTime = poolFromDexScreen.pairCreatedAt + (24*until + 1)*3600*1000
+    let targetTime = poolFromDexScreen.pairCreatedAt + (until + 1)*3600*1000
     if(until == 0) targetTime = Date.now()
     let nOffset = 0
     let stepSize = 10000, direct = 1      // step for pair trades
     let approxReach = false
     let txnTime = Date.now()
-    if(targetTime < Date.now()) {
-        do {
-            let txn = null
-            try {
-                //txn = await getTokenTrades(token, nOffset + stepSize * direct, 1)
-                txn = await getPairTrades(pair, nOffset + stepSize * direct, 1, 'swap')
-            } catch (error) {
-                console.log(error)
-                break
-            }
+    // if(targetTime < Date.now()) {
+    //     do {
+    //         let txn = null
+    //         try {
+    //             //txn = await getTokenTrades(token, nOffset + stepSize * direct, 1)
+    //             txn = await getPairTrades(pair, nOffset + stepSize * direct, 1, 'swap', 'asc')
+    //         } catch (error) {
+    //             console.log(error)
+    //             break
+    //         }
             
-            if(!txn || txn.length == 0) {
-                stepSize /= 2
-                continue
-                // break
-            }
-            txnTime = txn[0].blockUnixTime * 1000
-            nOffset += stepSize * direct
-            console.log('nOffset = ' + nOffset + ', ' + new Date(txnTime).toLocaleDateString())
-            let prevDirect = direct
-            if(!approxReach && txnTime < targetTime) {
-                approxReach = true
-                stepSize = 10000
-            }
-            if(txnTime < targetTime) direct = -1
-            else direct = 1
-            if(!approxReach) stepSize *= 2
-            else if(prevDirect != direct) stepSize /= 2
-            stepSize = Math.round(stepSize)
-            if(stepSize < 200) stepSize = 200
-        } while(Math.abs(txnTime - targetTime) > (3600 * 1000));
-    }
+    //         if(!txn || txn.length == 0) {
+    //             stepSize /= 2
+    //             continue
+    //             // break
+    //         }
+    //         txnTime = txn[0].blockUnixTime * 1000
+    //         nOffset += stepSize * direct
+    //         console.log('nOffset = ' + nOffset + ', ' + new Date(txnTime).toLocaleDateString())
+    //         let prevDirect = direct
+    //         if(!approxReach && txnTime < targetTime) {
+    //             approxReach = true
+    //             stepSize = 10000
+    //         }
+    //         if(txnTime < targetTime) direct = -1
+    //         else direct = 1
+    //         if(!approxReach) stepSize *= 2
+    //         else if(prevDirect != direct) stepSize /= 2
+    //         stepSize = Math.round(stepSize)
+    //         if(stepSize < 200) stepSize = 200
+    //     } while(Math.abs(txnTime - targetTime) > (3600 * 1000));
+    // }
 
     while(true) {
         let records = []
         try {
             //records = await getTokenTrades(token, nOffset, 50)
-            records = await getPairTrades(pair, nOffset, 50, 'swap')
+            records = await getPairTrades(pair, nOffset, 50, 'swap', 'asc')
         } catch (error) {
             console.log(error)
             break
@@ -740,19 +740,20 @@ async function fetchPairTradeHistoryForSwap(pair, until) {
         })
         if(records.length < 50) break
         nOffset += records.length
-        let txnTime = records[0].blockUnixTime * 1000
+        let txnTime = records[records.length - 1].blockUnixTime * 1000
+        if(txnTime > targetTime) break
         if(nOffset % 500 == 0) console.log(`${logTimeString()} : fetchOffsetSwap -> ${nOffset} : ${fmtTimestr(txnTime)}`)
     }
 }
 
 async function fetchPairTradeHistoryForLiquidity(pair, until) {
     let nOffset = 0
-    let targetTime = poolFromDexScreen.pairCreatedAt + (24*until + 1)*3600*1000
+    let targetTime = poolFromDexScreen.pairCreatedAt + (until + 1)*3600*1000
     if(until == 0) targetTime = Date.now()
     while(true) {
         let records = []
         try {
-            records = await getPairTrades(pair, nOffset, 50, 'add')
+            records = await getPairTrades(pair, nOffset, 50, 'add', 'asc')
         } catch (error) {
             console.log(error)
             break
@@ -761,6 +762,7 @@ async function fetchPairTradeHistoryForLiquidity(pair, until) {
             if(tx.blockUnixTime * 1000 <= targetTime) savePairTxnToDB(tx, 'add')
         })
         if(records.length == 0) break
+        if(records[records.length - 1].blockUnixTime * 1000 > targetTime) break
         let txnTime = records[records.length - 1].blockUnixTime * 1000
         console.log(`${logTimeString()} : fetchOffsetAdd -> ${nOffset} : ${fmtTimestr(txnTime)}`)
         nOffset += records.length
@@ -770,7 +772,7 @@ async function fetchPairTradeHistoryForLiquidity(pair, until) {
     while(true) {
         let records = []
         try {
-            records = await getPairTrades(pair, nOffset, 50, 'remove')
+            records = await getPairTrades(pair, nOffset, 50, 'remove', 'asc')
         } catch (error) {
             console.log(error)
             break
@@ -779,25 +781,28 @@ async function fetchPairTradeHistoryForLiquidity(pair, until) {
             if(tx.blockUnixTime * 1000 <= targetTime) savePairTxnToDB(tx, 'remove')
         })
         if(records.length == 0) break
+        if(records[records.length - 1].blockUnixTime * 1000 > targetTime) break
         let txnTime = records[records.length - 1].blockUnixTime * 1000
         console.log(`${logTimeString()} : fetchOffsetRemove -> ${nOffset} : ${fmtTimestr(txnTime)}`)
         nOffset += records.length
     }
 }
 
-async function getFetchPercent(token, pair) {
+async function getFetchPercent(token, pair, until) {
 
     let percent = 0
     let pubTime = Math.floor(poolFromDexScreen.pairCreatedAt / 1000)
-    let targetTime = Math.floor((poolFromDexScreen.pairCreatedAt + 49*3600*1000) / 1000)
+    let untilHours = 2
+    if(until) untilHours = until
+    let targetTime = Math.floor((poolFromDexScreen.pairCreatedAt + untilHours*3600*1000) / 1000)
     console.log(`pair =  ${pair}, ${fmtTimestr(poolFromDexScreen.pairCreatedAt)}`)
 
     let pipe = [
         { $match:  { 
-                blockUnixTime: {
-                    $gt: pubTime, 
-                    $lt: targetTime
-                },
+                // blockUnixTime: {
+                //     $gt: pubTime, 
+                //     $lt: targetTime
+                // },
                 token: token, 
                 type: "transfer" 
             }
@@ -808,8 +813,9 @@ async function getFetchPercent(token, pair) {
 
     if(records.length > 1) {
         let nDuration = targetTime - pubTime
-        let nFetched = targetTime - records[0].blockUnixTime
+        let nFetched = records[records.length - 1].blockUnixTime - pubTime
         percent = (90 * nFetched / nDuration)
+        if(percent > 90) percent = 90
         
         console.log(`${fmtTimestr(records[0].blockUnixTime*1000)} -> ${fmtTimestr(records[records.length-1].blockUnixTime*1000)} : percent=${percent}%`)
     }
@@ -823,13 +829,22 @@ async function getFetchPercent(token, pair) {
     return percent
 }
 
+const FetchState = {
+    completed: 0,
+    started: 1,
+    swapActive: 2,
+    swapInactive: 3,
+    swapFinished: 4,
+    checkRenounce: 5,    
+}
 // fetch-state: 
   /*  0 - completed, 
-      1 - insufficient, active, 
-      2 - insufficient, inactive, 
-      3 - insufficient, but swap and liquidity is fetched
-      4 - not initiated
-  */
+      1 - started
+      2 - insufficient, active, 
+      3 - insufficient, inactive, 
+      4 - insufficient, but swap and liquidity is fetched
+      5 - checking renounced
+  */ 
 async function fetchTokenTradesHistory(token, until)
 {
     return new Promise(async (resolve, reject) => {
@@ -853,23 +868,26 @@ async function fetchTokenTradesHistory(token, until)
             return
         }
 
-        let fPercent = await getFetchPercent(token, pair)
+        let fPercent = await getFetchPercent(token, pair, until)
         console.log('fPercent = ' + fPercent)
         let nState = 0
         if(fPercent == 0) {
-            nState = 4            
+            nState = FetchState.started
         }
-        else if(fPercent >= 90 && fPercent < 100) {
-            nState = 3
+        else if(fPercent > 90 && fPercent < 100) {
+            nState = FetchState.checkRenounce
+        }
+        else if(fPercent == 90) {
+            nState = FetchState.swapFinished
         }
         else if(fPercent == 100) {
-            nState = 0
+            nState = FetchState.completed
         }
         else {            
             if(SubscriberTxCounter.fetch_active)
-                nState = 1
+                nState = FetchState.swapActive
             else {
-                nState = 2            
+                nState = FetchState.swapInactive
             }
         }
 
@@ -879,15 +897,21 @@ async function fetchTokenTradesHistory(token, until)
             percent: fPercent
         })
 
-        if(SubscriberTxCounter.fetch_active || nState == 0 || nState == 1) return
+        if(SubscriberTxCounter.fetch_active || 
+            nState == FetchState.completed || nState == FetchState.swapActive) return
 
         SubscriberTxCounter.fetch_active = true
-        if(nState != 3) {
+        if(nState == FetchState.started ||
+            nState == FetchState.swapInactive
+        ) {
             await fetchPairTradeHistoryForSwap(pair, until)
             await fetchPairTradeHistoryForLiquidity(pair, until)
             await deleteHistoryDuplicates()
+            nState = FetchState.swapFinished
         }
-        await checkRenouncedAndLpburned(token, fetchedLastTxn.txHash)
+        if(nState == FetchState.swapFinished) {
+            await checkRenouncedAndLpburned(token, fetchedLastTxn.txHash)
+        }
         SubscriberTxCounter.fetch_active = false
     })
 }

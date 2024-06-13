@@ -65,11 +65,16 @@ async function checkRenouncedAndLpburned(address, beforeTxnHash) {
         }
     }
 
+    let txns = response.data.result
+    if(txns.length > 20) {
+        txns.splice(20, txns.length - 20)
+    }
+
     let renouncedTime = 0
-    CheckTokenAuditThread.task_count = response.data.result.length
-    for(let k = 0; k < response.data.result.length; k++) {
-        let signature = response.data.result[k].signature
-        console.log(`getTransaction: ${k+1} / ${response.data.result.length} -> ${signature}`)
+    CheckTokenAuditThread.task_count = txns.length
+    for(let k = 0; k < txns.length; k++) {
+        let signature = txns[k].signature
+        console.log(`getTransaction: ${k+1} / ${txns.length} -> ${signature}`)
         CheckTokenAuditThread.progress = k + 1
         let freezeInstructions = []
         try {

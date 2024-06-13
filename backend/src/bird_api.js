@@ -467,9 +467,13 @@ async function getTokenTrades(token, offset, limit)
     return response.data.data.items
 }
 
-async function getPairTrades(pair, offset, limit, tx_type) 
+async function getPairTrades(pair, offset, limit, tx_type, sort_type) 
 {
-    let query = `https://public-api.birdeye.so/defi/txs/pair?address=${pair}&offset=${offset}&limit=${limit}&tx_type=${tx_type}&sort_type=desc`
+    let sortType
+    if(sort_type == 'desc' || sort_type == 'asc') sortType = sort_type
+    else sortType = 'desc'
+
+    let query = `https://public-api.birdeye.so/defi/txs/pair?address=${pair}&offset=${offset}&limit=${limit}&tx_type=${tx_type}&sort_type=${sortType}`
     let response = {}
     try {
         response = await axios.get(query, {
@@ -578,9 +582,6 @@ async function saveTokenTxnToDB(tx) {
         TokenList.updateHolders(token, tx.owner, baseAmount * (-1))
     }
 
-    SubscriberTxCounter.add_live()
-    return
-    
     const t = new Transaction({
         txHash: tx.txHash,
         blockUnixTime: tx.blockUnixTime,
@@ -604,6 +605,9 @@ async function saveTokenTxnToDB(tx) {
     .catch((e) => {
         console.log('ERROR: ', tx, '----------------->', e)
     })  
+
+    SubscriberTxCounter.add_live()
+    return
 }
 
 async function savePairTxnToDB(tx, sideType) {
@@ -653,7 +657,7 @@ async function savePairTxnToDB(tx, sideType) {
             total = solAmount * 180 / 1000000000
             token = tx.tokens[1].address
             fromSymbol = 'SOL'
-            toSymbol = tx.tokens[1].symbol
+            toSymbol = tx.tokens[1].symbol ? tx.tokens[1].symbol : 'unknown'
             tradeSymbol = toSymbol
         }
         if(tx.tokens && tx.tokens.length > 1 && tx.tokens[1].symbol == 'SOL') {
@@ -662,7 +666,7 @@ async function savePairTxnToDB(tx, sideType) {
             total = solAmount * 180 / 1000000000
             token = tx.tokens[0].address
             toSymbol = 'SOL'
-            fromSymbol = tx.tokens[0].symbol
+            fromSymbol = tx.tokens[0].symbol ? tx.tokens[0].symbol : 'unknown'
             tradeSymbol = fromSymbol
         }
     }
