@@ -602,8 +602,11 @@ const sortWallets = (rankSize, filterZero, filterTokensAtleast, sortMode) => {
         for(let wallet of topWallets) {            
             let trades = profitsPerSymbol.filter(item => item._id.owner == wallet._id)
             let tradesPerSide = profitsPerSymbolAndSide.filter(item => item._id.owner == wallet._id)
-            let buyTrades = tradesPerSide.filter(trade => trade._id.side == 'buy')
-            let sellTrades = tradesPerSide.filter(trade => trade._id.side == 'sell')
+            // 'side' indicates the trade with view of sol
+            // 'sell' means selling of sol, that is buying of token
+            // 'buy' means buying of sol, that is selling of token
+            let buyTrades = tradesPerSide.filter(trade => trade._id.side == 'sell') 
+            let sellTrades = tradesPerSide.filter(trade => trade._id.side == 'buy')
             if(filterZero) {
                 if(buyTrades.length == 0) continue
                 sellTrades = sellTrades.filter(s => 
@@ -615,8 +618,8 @@ const sortWallets = (rankSize, filterZero, filterTokensAtleast, sortMode) => {
             }
             if(trades.length < filterTokensAtleast) continue
             let totalTrades = trades.length
-            let profitTrades = trades.filter(trade => trade.total < 0)
-            let lossTrades = trades.filter(trade => trade.total >= 0)
+            let profitTrades = trades.filter(trade => trade.total >= 0)
+            let lossTrades = trades.filter(trade => trade.total < 0)
             let profitTokens = ''
             let lossTokens = ''
             let winToken = 0
@@ -632,7 +635,8 @@ const sortWallets = (rankSize, filterZero, filterTokensAtleast, sortMode) => {
             }
 
             let winRate = `${Math.round(100 * winToken / totalTrades)}%`
-            let totalProfit = (-1) * wallet.total
+            //let totalProfit = (-1) * wallet.total
+            let totalProfit = wallet.total
             let avgProfit = totalProfit / totalTrades
             //let tradedTokens = trades.map(trade => trade._id.tradeSymbol).join(',')
 
@@ -640,10 +644,11 @@ const sortWallets = (rankSize, filterZero, filterTokensAtleast, sortMode) => {
             let buyAmount = 0
             if(sellTrades && sellTrades.length > 0) {
                 for(let k = 0; k < sellTrades.length; k++) sellAmount += sellTrades[k].total
-                sellAmount = (-1) * sellAmount
+                // sellAmount = (-1) * sellAmount                
             }
             if(buyTrades && buyTrades.length > 0) {
-                for(let k = 0; k < buyTrades.length; k++) buyAmount += buyTrades[k].total                
+                for(let k = 0; k < buyTrades.length; k++) buyAmount += buyTrades[k].total
+                buyAmount = (-1) * buyAmount
             }
 
             if(filterZero && buyAmount == 0) continue
