@@ -556,7 +556,7 @@ const sortWallets = (rankSize, filterZero, filterTokensAtleast, sortMode) => {
         let pipeline = [
             { $match: { type: "transfer", tradeSymbol: { $ne: 'SOL'} }},
             { $group: { _id:'$owner', total: { $sum: '$solAmount'}}},
-            { $sort: { 'total': 1 } }
+            { $sort: { 'total': -1 } }
         ]
         let topWallets = await Transaction.aggregate(pipeline, { allowDiskUse: true }).limit(20 * rankSize).exec()
         let wallets = []
@@ -655,7 +655,7 @@ const sortWallets = (rankSize, filterZero, filterTokensAtleast, sortMode) => {
 
             let profit = sellAmount - buyAmount
             let pnlRate = buyAmount > 0 ? 
-                            Math.round(100 * totalProfit / buyAmount) : 999999
+                            Math.round(100 * totalProfit / buyAmount) : 0
 
             wallets.push({
                 wallet: wallet._id, 
