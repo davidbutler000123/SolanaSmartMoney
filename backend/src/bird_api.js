@@ -109,7 +109,7 @@ let TokenList = {
         let dbTokens = await Token.find().map(item => item.address)
         if(dbTokens && dbTokens.length > 0) TokenList.tokens = dbTokens
     },
-    queryToken: (address, symbol) => {
+    queryToken: (address, symbol, initLiquiditySol) => {
         let existTokens = TokenList.tokens[address]
         if(existTokens) {
             return true
@@ -119,11 +119,14 @@ let TokenList = {
             symbol: symbol,
             buy: 0,
             sell: 0,
-            pairCreatedAt: 0,
+            initLiquiditySol: initLiquiditySol,
+            pairCreatedAt: Date.now(),
             holders: {},
             holder_count: 0,
             alerted: false
         }
+        console.log('TokenList: new token->' + address + ', liquidity=' + initLiquiditySol)
+        console.log(TokenList.tokens)
         return false
     },
     increaseTokenBuy: (address) => {
@@ -132,10 +135,14 @@ let TokenList = {
         token.buy++
     },
     updateTokenPoolInfo: (address, pairCreatedAt) => {
+        console.log('updateTokenPoolInfo_prev')
+        console.log(TokenList.tokens)
         let token = TokenList.tokens[address]
         if(!token) return
         if(checkLivePoolTime(pairCreatedAt)) token.pairCreatedAt = pairCreatedAt
         else delete TokenList.tokens[address]
+        console.log('updateTokenPoolInfo_after')
+        console.log(TokenList.tokens)
     },
     removeOldTokens: () => {
         Object.keys(TokenList.tokens).forEach(address => {
@@ -730,7 +737,7 @@ async function updateTokenList(tx) {
     if(token_addr == '') return
 
     TokenList.removeOldTokens()
-    if(TokenList.queryToken(token_addr, token_symbol)) return
+    if(TokenList.queryToken(token_addr, token_symbol, 0)) return
 
     let nowTime = Date.now()
     let query = `https://api.dexscreener.io/latest/dex/tokens/${token_addr}`
@@ -757,52 +764,45 @@ async function updateTokenList(tx) {
     let pool = pools[0]
 
     let tzOffset = new Date().getTimezoneOffset()
-    let pairCreatedAt = pool.pairCreatedAt + tzOffset * 60000    
+    // let pairCreatedAt = pool.pairCreatedAt + tzOffset * 60000    
+    let pairCreatedAt = pool.pairCreatedAt
     TokenList.updateTokenPoolInfo(token_addr, pairCreatedAt)
     return
 }
 
-function getTokenAlerts(offset, limit, type) {
-    // let alerts = []
-    // if(limit < 1 || TokenList.alerts.length <= offset ||
-    //     TokenList.alerts.length == 0 ||
-    //     offset < 0
-    // ) {
-    //     return {
-    //         result: 0,
-    //         total: 0,
-    //         alerts: []
-    //     }
-    // }    
-    // for(let i = TokenList.alerts.length - offset - 1; i >= 0; i--) {
-    //     let alert = TokenList.alerts[i]
-    //     if(PriceHolderInstance.tokens[alert.address]) {
-    //         alert.price = PriceHolderInstance.tokens[alert.address].price
-    //         alert.price_ath = PriceHolderInstance.tokens[alert.address].price_ath
-    //         alert.fdvNowUsd = alert.price * alert.totalSupply
-    //         if(PriceProvider.currentSol > 0) alert.fdvNowSol = alert.fdvNowUsd / PriceProvider.currentSol
-    //         alert.fdvAthUsd = alert.price_ath * alert.totalSupply
-    //         if(PriceProvider.currentSol > 0) alert.fdvAthSol = alert.fdvAthUsd / PriceProvider.currentSol
-    //         if(alert.initLiquiditySol > 0) alert.roiNow = alert.fdvNowSol / alert.initLiquiditySol
-    //         if(alert.initLiquiditySol > 0) alert.roiAth = alert.fdvAthSol / alert.initLiquiditySol
-    //     }
-    //     alerts.push(alert)
-    //     if(alerts.length >= limit) break
-    // }
-    // return {
-    //     result: 0,
-    //     total: TokenList.alerts.length,
-    //     alerts: alerts
-    // }
+async function updateTokenListFromHelius(pair) {
+    if(TokenList.queryToken(pair.token, pair.symbol, pair.initLiquiditySol)) return
+    let tzOffset = new Date().getTimezoneOffset()
+    // TokenList.updateTokenPoolInfo(pair.token, pair.createdAt + tzOffset * 60000)
+    TokenList.updateTokenPoolInfo(pair.token, pair.createdAt)
+}
+
+function getTokenAlerts(offset, limit, type, isForExport) {    
     return new Promise(async (resolve, reject) => {
         let total = await TokenAlert.countDocuments({type: type})
         total = Math.ceil(total / limit)
-        const result = await TokenAlert.aggregate([
-            {
+        let matchAggr = {}
+        if(isForExport) {
+            let start = offset
+            let end = limit
+            matchAggr = {
+                $match: {
+                    createdAt: { $lt: end },
+                    createdAt: { $gt: start },
+                    type: type
+                }
+            }
+        }
+        else {
+            matchAggr = {
                 $match: {
                     type: type
                 }
-            },
+            }
+        }
+
+        const pipeline = [
+            matchAggr,
             {
                 $lookup: {
                     from: 'tokens',
@@ -837,14 +837,25 @@ function getTokenAlerts(offset, limit, type) {
                 } 
             },
             {   $sort: {"createdAt": -1} },
-        ])
-        .skip(offset * limit).limit(limit)
-        .exec()
+        ]
+
+        let result
+        if(isForExport) {
+            result = await TokenAlert.aggregate(pipeline)
+            .exec()
+            if(result && result.length > 1000) result.splice(1000, result.length - 1000)
+        }
+        else {
+            result = await TokenAlert.aggregate(pipeline)
+            .skip(offset * limit).limit(limit)
+            .exec()
+        }
 
         for(let i = 0; i < result.length; i++) {
             let item = result[i]
             item.pairAgeLabel = calcTimeMins(item.pairCreatedAt)
 
+            item.pairCreatedAt += Date().getTimezoneOffset()
             item.fdvNowUsd = item.price * item.totalSupply
             if(PriceProvider.currentSol > 0) item.fdvNowSol = item.fdvNowUsd / PriceProvider.currentSol
             item.fdvAthUsd = item.priceAth * item.totalSupply
@@ -863,54 +874,32 @@ function getTokenAlerts(offset, limit, type) {
     })  
 }
 
-function getWalletAlerts(offset, limit, type) {
-    // let trades = []
-    // let targetTrades = []
-    // if(type == 0) {
-    //     targetTrades = SmartWalletList.singleTrades
-    // }
-    // else {
-    //     targetTrades = SmartWalletList.groupTrades
-    // }
-    // if(limit < 1 || targetTrades.length <= offset ||
-    //     targetTrades.length == 0 ||
-    //     offset < 0
-    // ) {
-    //     return {
-    //         result: 0,
-    //         total: 0,
-    //         alerts: []
-    //     }
-    // }    
-    // for(let i = targetTrades.length - offset - 1; i >= 0; i--) {
-    //     let trd = targetTrades[i]
-    //     if(PriceHolderInstance.tokens[trd.token]) {
-    //         trd.pool.price = PriceHolderInstance.tokens[trd.token].price
-    //         trd.pool.price_ath = PriceHolderInstance.tokens[trd.token].price_ath
-    //         trd.pool.fdvNowUsd = trd.pool.price * trd.pool.totalSupply
-    //         if(PriceProvider.currentSol > 0) trd.pool.fdvNowSol = trd.pool.fdvNowUsd / PriceProvider.currentSol
-    //         trd.pool.fdvAthUsd = trd.pool.price_ath * trd.pool.totalSupply
-    //         if(PriceProvider.currentSol > 0) trd.pool.fdvAthSol = trd.pool.fdvAthUsd / PriceProvider.currentSol
-    //         if(trd.pool.initLiquiditySol > 0) trd.pool.roiNow = trd.pool.fdvNowSol / trd.pool.initLiquiditySol
-    //         if(trd.pool.initLiquiditySol > 0) trd.pool.roiAth = trd.pool.fdvAthSol / trd.pool.initLiquiditySol
-    //     }
-    //     trades.push(trd)
-    //     if(trades.length >= limit) break
-    // }
-    // return {
-    //     result: 0,
-    //     total: targetTrades.length,
-    //     alerts: trades
-    // }
+function getWalletAlerts(offset, limit, type, isForExport) {    
     return new Promise(async (resolve, reject) => {
         let total = await WalletAlert.countDocuments({type: type})
         total = Math.ceil(total / limit)
-        let result = await WalletAlert.aggregate([
-            {
+        let matchAggr = {}
+        if(isForExport) {
+            let start = offset
+            let end = limit
+            matchAggr = {
+                $match: {
+                    createdAt: { $lt: end },
+                    createdAt: { $gt: start },
+                    type: type
+                }
+            }
+        }
+        else {
+            matchAggr = {
                 $match: {
                     type: type
                 }
-            },
+            }
+        }
+
+        const pipeline = [
+            matchAggr,
             {
                 $lookup: {
                     from: 'tokens',
@@ -945,13 +934,24 @@ function getWalletAlerts(offset, limit, type) {
                 } 
             },
             {   $sort: {"createdAt": -1} },
-        ])
-        .skip(offset * limit).limit(limit)
-        .exec()
+        ]
+
+        let result
+        if(isForExport) {
+            result = await WalletAlert.aggregate(pipeline)
+            .exec()
+            if(result && result.length > 1000) result.splice(1000, result.length - 1000)
+        }
+        else {
+            result = await WalletAlert.aggregate(pipeline)
+            .skip(offset * limit).limit(limit)
+            .exec()
+        }
 
         for(let i = 0; i < result.length; i++) {
             let item = result[i]
             item.pairAgeLabel = calcTimeMins(item.pairCreatedAt)
+            item.pairCreatedAt += Date().getTimezoneOffset()
 
             item.fdvNowUsd = item.price * item.totalSupply
             if(PriceProvider.currentSol > 0) item.fdvNowSol = item.fdvNowUsd / PriceProvider.currentSol
@@ -986,6 +986,7 @@ module.exports = {
     saveTokenTxnToDB,
     savePairTxnToDB,
     updateTokenList,
+    updateTokenListFromHelius,
     getTokenAlerts,
     getWalletAlerts
 }

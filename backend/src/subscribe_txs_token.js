@@ -53,10 +53,10 @@ client.on('connect', async function (connection) {
                 return
             }
 
-            if(tx.side != 'buy' && tx.side != 'sell') {
-                updateTokenList(tx)
-            }
-            else if(tx.side == 'buy') {                
+            // if(tx.side != 'buy' && tx.side != 'sell') {
+            //     updateTokenList(tx)
+            // }
+            if(tx.side == 'buy') {                
                 if (process.env.SERVER_TYPE == 'step02' && instance.bot_start) {
                     SmartWalletList.checkNewTrade(tx)
                 }

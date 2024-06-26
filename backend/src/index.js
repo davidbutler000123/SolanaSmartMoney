@@ -14,6 +14,10 @@ import { PriceUpdaterInstance } from './price_updater.js';
 
 require('./subscribe_txs_token')
 require('./trade_indexer')
+require('./helius_api.js')
+import { getTokenInfo } from'./utils/utils.js'
+getTokenInfo('FwioCtW1bgJrWRkPi8hzYLHq5mVnxkYp72uSvA8A3L3y')
+
 const txAanalyzer = require('./tx_analyzer')
 const walletMannager = require('./walletManager')
 const alchemyApi = require('./alchemy_api')
@@ -215,7 +219,33 @@ app.get('/api/tokenAlerts', (req, res) => {
   if(!limit) limit = 20
   if(!type) type = 0
   // res.send(birdApi.getTokenAlerts(offset, limit, type))
-  birdApi.getTokenAlerts(offset, limit, type)
+  birdApi.getTokenAlerts(offset, limit, type, false)
+  .then(records => {
+    res.send(records)
+  })
+  .catch(err => {
+    res.send({
+      result: 0,
+      total: 0,
+      alerts: []
+    })
+  })
+})
+
+app.get('/api/tokenAlertsForExport', (req, res) => {
+  let start = Date.now() - 3600000 * 24
+  let end = Date.now()
+  try {
+    start = new Date(req.query.start).getTime()
+    end = new Date(req.query.end).getTime()    
+  } catch (error) {
+    
+  }
+  let type = parseInt(req.query.type)
+  if(!type) type = 0
+  console.log('start = ' + start)
+  console.log('end = ' + end)
+  birdApi.getTokenAlerts(start, end, type, true)
   .then(records => {
     res.send(records)
   })
@@ -236,7 +266,33 @@ app.get('/api/walletAlerts', (req, res) => {
   if(!limit) limit = 20
   if(!type) type = 0
   // res.send(birdApi.getWalletAlerts(offset, limit, type))
-  birdApi.getWalletAlerts(offset, limit, type)
+  birdApi.getWalletAlerts(offset, limit, type, false)
+  .then(records => {
+    res.send(records)
+  })
+  .catch(err => {
+    res.send({
+      result: 0,
+      total: 0,
+      alerts: []
+    })
+  })
+})
+
+app.get('/api/walletAlertsForExport', (req, res) => {
+  let start = Date.now() - 3600000 * 24
+  let end = Date.now()
+  try {
+    start = new Date(req.query.start).getTime()
+    end = new Date(req.query.end).getTime()    
+  } catch (error) {
+    
+  }
+  let type = parseInt(req.query.type)
+  if(!type) type = 0
+  console.log('start = ' + start)
+  console.log('end = ' + end)
+  birdApi.getWalletAlerts(start, end, type, true)
   .then(records => {
     res.send(records)
   })

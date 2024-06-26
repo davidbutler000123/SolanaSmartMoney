@@ -1,3 +1,12 @@
+import { PublicKey,Connection } from "@solana/web3.js";
+import { Metaplex } from '@metaplex-foundation/js';
+import { TokenListProvider } from '@solana/spl-token-registry';
+
+const dotenv = require('dotenv')
+dotenv.config()
+
+const mainRPC = process.env.MAINNET_RPC;
+const connection = new Connection(mainRPC, "confirmed");
 
 export const logTimeString = () => {
     let nowTime = new Date
@@ -54,4 +63,46 @@ export const calcTimeMins = (pairCreatedAt) => {
         ageLabel = Math.floor(timeMins / 1440) + ' days ago'
     }
     return ageLabel
+}
+
+export const getTokenInfo = async (addr) => {
+    const metaplex = Metaplex.make(connection);
+
+    const mintAddress = new PublicKey(addr);
+
+    const metadataAccount = metaplex
+        .nfts()
+        .pdas()
+        .metadata({ mint: mintAddress });
+
+    const metadataAccountInfo = await connection.getAccountInfo(metadataAccount);
+
+    if (metadataAccountInfo) {
+        const token = await metaplex
+            .nfts()
+            .findByMint({ mintAddress: mintAddress });
+        if (token) {
+            console.log('utils: token = ')
+            console.log(token)
+
+            return { exist: true, symbol: token.mint.currency.symbol, decimal: token.mint.currency.decimals }
+        } else {
+            return { exist: false, symbol: "", decimal: 0 }
+        }
+    } else {
+        const provider = await new TokenListProvider().resolve();
+        const tokenList = provider.filterByChainId(101).getList();
+        const tokenMap = tokenList.reduce((map, item) => {
+            map.set(item.address, item);
+            return map;
+        }, new Map());
+
+        const token = tokenMap.get(mintAddress.toBase58());
+
+        if (token) {
+            return { exist: true, symbol: token.mint.currency.symbol, decimal: token.mint.currency.decimals }
+        } else {
+            return { exist: false, symbol: "", decimal: 0 }
+        }
+    }
 }

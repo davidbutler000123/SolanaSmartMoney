@@ -931,10 +931,13 @@ async function fetchTokenTradesHistory(token, until)
 
 async function findAlertingTokens(buyTxns, holders) {
     return new Promise(async (resolve, reject) => {
+        
+        console.log(TokenList.tokens)
+
         let buyMetTokens = Object.values(TokenList.tokens).filter(item => 
-            item.buy > buyTxns && 
-            item.holder_count > holders &&
-            item.alerted == false)
+            item.alerted == false &&
+            ((item.buy > buyTxns && item.holder_count > holders) ||
+            (item.initLiquiditySol >= 100)))
         if(!buyMetTokens || buyMetTokens.length == 0) {
             resolve({
                 result: 0,
@@ -978,13 +981,13 @@ async function findAlertingTokens(buyTxns, holders) {
                 if(!totalSupply) totalSupply = 0
             }
 
-            if(holder_count < holders) {
-                resolve({
-                    result: 0,
-                    count: 0
-                })
-                return
-            }
+            // if(holder_count < holders) {
+            //     resolve({
+            //         result: 0,
+            //         count: 0
+            //     })
+            //     return
+            // }
 
             if(token.buy > holder_count) type = 1
             else type = 2
@@ -1034,7 +1037,7 @@ async function findAlertingTokens(buyTxns, holders) {
                     }                    
                 }                
             }            
-            let initLiquiditySol = 0
+            let initLiquiditySol = token.initLiquiditySol
             query = `https://public-api.birdeye.so/defi/txs/pair?address=${pairAddress}&offset=0&limit=1&tx_type=add&sort_type=asc`
             response = {}
             try {
@@ -1049,16 +1052,18 @@ async function findAlertingTokens(buyTxns, holders) {
                 console.log(error.toString())
             }
             
-            if(response.data && response.data.data && response.data.data.items && response.data.data.items.length > 0) {
-                let trade = response.data.data.items[0]
-                if(trade.tokens && trade.tokens.length > 0 && trade.tokens[0].symbol == 'SOL') {
-                    initLiquiditySol = trade.tokens[0].amount / (10 ** trade.tokens[0].decimals)
-                }
-                else if(trade.tokens && trade.tokens.length > 1 && trade.tokens[1].symbol == 'SOL') {
-                    initLiquiditySol = trade.tokens[1].amount / (10 ** trade.tokens[1].decimals)
+            if(initLiquiditySol == 0) {
+                if(response.data && response.data.data && response.data.data.items && response.data.data.items.length > 0) {
+                    let trade = response.data.data.items[0]
+                    if(trade.tokens && trade.tokens.length > 0 && trade.tokens[0].symbol == 'SOL') {
+                        initLiquiditySol = trade.tokens[0].amount / (10 ** trade.tokens[0].decimals)
+                    }
+                    else if(trade.tokens && trade.tokens.length > 1 && trade.tokens[1].symbol == 'SOL') {
+                        initLiquiditySol = trade.tokens[1].amount / (10 ** trade.tokens[1].decimals)
+                    }
                 }
             }
-            if(initLiquiditySol > 100) type = 3
+            if(initLiquiditySol >= 100) type = 3
 
             let pubTime = Math.floor(token.pairCreatedAt / 1000)
             let targetTime = Math.floor(Date.now() / 1000)
@@ -1097,6 +1102,10 @@ async function findAlertingTokens(buyTxns, holders) {
                 roiAth: 0,
                 roiNow: 0,
                 holder_count: holder_count ? holder_count : token.holder_count
+            }
+            if(type == 3) {
+                console.log('****************** Alert03 detected! *************************')
+                console.log(tokenAlert)
             }
             TokenList.pushNewAlert(tokenAlert)
             resolve({
