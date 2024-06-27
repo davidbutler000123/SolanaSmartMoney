@@ -15,8 +15,6 @@ import { PriceUpdaterInstance } from './price_updater.js';
 require('./subscribe_txs_token')
 require('./trade_indexer')
 require('./helius_api.js')
-import { getTokenInfo } from'./utils/utils.js'
-getTokenInfo('FwioCtW1bgJrWRkPi8hzYLHq5mVnxkYp72uSvA8A3L3y')
 
 const txAanalyzer = require('./tx_analyzer')
 const walletMannager = require('./walletManager')
