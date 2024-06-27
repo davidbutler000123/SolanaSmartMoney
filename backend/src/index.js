@@ -97,7 +97,7 @@ app.get('/api/fetchTokenHistory', (req, res) => {
 app.get('/api/calcPnlPerToken', (req, res) => {
   let rankSize = parseInt(req.query.rankSize)
   if(rankSize <= 0) rankSize = 10
-  if(rankSize > 100) rankSize = 100
+  if(rankSize > 1000) rankSize = 1000
   let filterZero = parseInt(req.query.filterZero)
   if(filterZero < 0) filterZero = 1
   let sortMode = req.query.sortMode
@@ -113,7 +113,7 @@ app.get('/api/calcPnlPerToken', (req, res) => {
 app.get('/api/calcTopTrader', (req, res) => {
   let rankSize = parseInt(req.query.rankSize)
   if(rankSize <= 0) rankSize = 10
-  if(rankSize > 100) rankSize = 100
+  if(rankSize > 1000) rankSize = 1000
   let filterZero = parseInt(req.query.filterZero)
   if(filterZero < 0) filterZero = 1
   let sortMode = req.query.sortMode
@@ -129,7 +129,7 @@ app.get('/api/calcTopTrader', (req, res) => {
 app.get('/api/sortWallets', (req, res) => {
   let rankSize = parseInt(req.query.rankSize)
   if(rankSize <= 0) rankSize = 10
-  if(rankSize > 100) rankSize = 100
+  if(rankSize > 1000) rankSize = 1000
   let filterZero = parseInt(req.query.filterZero)
   if(filterZero < 0) filterZero = 1
   let filterTokenAtleast = parseInt(req.query.filterTokenAtleast)
